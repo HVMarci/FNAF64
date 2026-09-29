@@ -1,0 +1,6 @@
+build/
+tools/kickass/
+tools/ka.zip
+tools/sparkle
+__pycache__/
+*.pyc
