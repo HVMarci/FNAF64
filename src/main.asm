@@ -1168,13 +1168,13 @@ SpriteUpdate:
         beq !+
         ora #$80
 !:      sta $d015
-        lda #69                 // slot 0 back to the door button
+        lda #90                 // slot 0 back to the door button
         sta $d000
         lda #108
         sta $d001
         lda #15
         sta $d027
-        lda #$cc                // right hand sprites are beyond x=255
+        lda #0
         sta $d010
         rts
 spr_cam:
@@ -1508,13 +1508,9 @@ lr_wl:  jsr CopyRec
         sta zwin
         ldx zside
 lr_door:
-        lda dstate,x
-        ora ddrawn,x
-        beq lr_idle
-        lda #$ff
-        sta ldrawn,x            // door moving/closed: force a redraw once it is open again
-        rts
-lr_idle:
+        // The rows below the door edge ("open" rows) always follow the light, also while
+        // the door is moving: redraw them when the light changes. Rows above the edge
+        // show the closed door and the strip rows are light independent.
         lda lwant,x
         cmp ldrawn,x
         beq lr_ret
@@ -1523,12 +1519,14 @@ lr_idle:
         sta zvar
         lda #0
         sta zwin
-        sta zrow
-lr_lp:  jsr CopyRec
-        inc zrow
-        lda zrow
+        lda ddrawn,x
+        sta zrow                // first open row (>= 22: none, door fully closed)
+lr_lp:  lda zrow
         cmp #22
-        bne lr_lp
+        bcs lr_ret
+        jsr CopyRec
+        inc zrow
+        jmp lr_lp
 lr_ret: rts
 
 //==============================================================================
@@ -1571,7 +1569,7 @@ kcol:       .byte $fd,$fd,$ef,$df,$7f,$7f,$7f,$fd,$fd,$fb,$fb,$f7,$fe,$fd,$bf
 krow:       .byte $04,$20,$20,$04,$10,$01,$08,$01,$08,$01,$08,$01,$04,$80,$10
 
 // sprites: 0 L door ring, 1 L light ring, 2 R door ring, 3 R light ring, 4-7 lit overlays
-spr_x:      .byte 69,69,18,18,69,69,18,18       // right side: x >= 256, MSB set in $d010 ($cc)
+spr_x:      .byte 90,90,255,255,90,90,255,255
 spr_y:      .byte 108,136,108,136,108,136,108,136
 spr_col:    .byte 15,15,15,15,2,7,2,7
 ptr_office: .byte SPR_PTR+0,SPR_PTR+1,SPR_PTR+2,SPR_PTR+3,SPR_PTR+4,SPR_PTR+5,SPR_PTR+6,SPR_PTR+7
