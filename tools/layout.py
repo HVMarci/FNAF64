@@ -1,9 +1,9 @@
 """Shared layout constants (sprite positions in screen pixels, 0,0 = top-left of 320x200 area)."""
 # button sprites: (x, y)
-LBTN_DOOR = (66, 58)
-LBTN_LIGHT = (66, 86)
-RBTN_DOOR = (231, 58)
-RBTN_LIGHT = (231, 86)
+LBTN_DOOR = (45, 58)
+LBTN_LIGHT = (45, 86)
+RBTN_DOOR = (250, 58)
+RBTN_LIGHT = (250, 86)
 REC_POS = (270, 6)
 
 def OFFICE_SPRITES_PREVIEW(imgs):

@@ -1168,13 +1168,13 @@ SpriteUpdate:
         beq !+
         ora #$80
 !:      sta $d015
-        lda #90                 // slot 0 back to the door button
+        lda #69                 // slot 0 back to the door button
         sta $d000
         lda #108
         sta $d001
         lda #15
         sta $d027
-        lda #0
+        lda #$cc                // right hand sprites are beyond x=255
         sta $d010
         rts
 spr_cam:
@@ -1330,6 +1330,8 @@ ds_ret: rts
 // Render state k (= ddrawn-2): rows k-1 closed, k / k+1 hazard strip, k+2 open
 RenderEdge:
         stx zside
+        lda #0
+        sta zwin                // door cells only
         lda ddrawn,x
         sec
         sbc #3                  // row k-1
@@ -1416,18 +1418,44 @@ cr_right:
         lda rsr_hi,y
         sta zds+1
 cr_copy:
-        ldy #71
+        lda zside               // part = side*2 + window flag
+        asl
+        ora zwin
+        tax
+        clc
+        lda zsrc
+        adc boff,x
+        sta zsrc
+        bcc !+
+        inc zsrc+1
+!:      clc
+        lda zdb
+        adc boff,x
+        sta zdb
+        bcc !+
+        inc zdb+1
+!:      lda blen,x
+        tay
+        dey
 !:      lda (zsrc),y
         sta (zdb),y
         dey
         bpl !-
-        lda zsrc
         clc
-        adc #72
+        lda zsrc
+        adc sadv,x
         sta zsrc
         bcc !+
         inc zsrc+1
-!:      ldy #8
+!:      clc
+        lda zds
+        adc soff,x
+        sta zds
+        bcc !+
+        inc zds+1
+!:      lda slen,x
+        tay
+        dey
 !:      lda (zsrc),y
         sta (zds),y
         dey
@@ -1461,6 +1489,25 @@ CopyRecSrc:
 LightRender:                    // X = side
         lda lwant,x
         sta lvar,x              // variant used for the door's "open" rows
+        cmp wdrawn,x
+        beq lr_door
+        // the window next to the door follows the light, whatever the door does
+        sta wdrawn,x
+        stx zside
+        sta zvar
+        lda #1
+        sta zwin
+        lda #0
+        sta zrow
+lr_wl:  jsr CopyRec
+        inc zrow
+        lda zrow
+        cmp #22
+        bne lr_wl
+        lda #0
+        sta zwin
+        ldx zside
+lr_door:
         lda dstate,x
         ora ddrawn,x
         beq lr_idle
@@ -1475,6 +1522,7 @@ lr_idle:
         stx zside
         sta zvar
         lda #0
+        sta zwin
         sta zrow
 lr_lp:  jsr CopyRec
         inc zrow
@@ -1523,7 +1571,7 @@ kcol:       .byte $fd,$fd,$ef,$df,$7f,$7f,$7f,$fd,$fd,$fb,$fb,$f7,$fe,$fd,$bf
 krow:       .byte $04,$20,$20,$04,$10,$01,$08,$01,$08,$01,$08,$01,$04,$80,$10
 
 // sprites: 0 L door ring, 1 L light ring, 2 R door ring, 3 R light ring, 4-7 lit overlays
-spr_x:      .byte 90,90,255,255,90,90,255,255
+spr_x:      .byte 69,69,18,18,69,69,18,18       // right side: x >= 256, MSB set in $d010 ($cc)
 spr_y:      .byte 108,136,108,136,108,136,108,136
 spr_col:    .byte 15,15,15,15,2,7,2,7
 ptr_office: .byte SPR_PTR+0,SPR_PTR+1,SPR_PTR+2,SPR_PTR+3,SPR_PTR+4,SPR_PTR+5,SPR_PTR+6,SPR_PTR+7
@@ -1534,6 +1582,13 @@ sbase_lo:   .byte <PATCHES, <(PATCHES+SIDE_SZ)
 sbase_hi:   .byte >PATCHES, >(PATCHES+SIDE_SZ)
 voff_lo:    .byte <P_N, <P_L, <P_C, <P_S
 voff_hi:    .byte >P_N, >P_L, >P_C, >P_S
+// door / window sub-ranges of a record: part = side*2 + window
+//              L door  L win  R door  R win
+boff:       .byte 0,     56,    32,     0
+blen:       .byte 40,    16,    40,     16
+soff:       .byte 0,     7,     4,      0
+slen:       .byte 5,     2,      5,     2
+sadv:       .byte 72,    23,    44,     72
 mul81_lo:   .fill 22, <(i*81)
 mul81_hi:   .fill 22, >(i*81)
 rbl_lo:     .fill 22, <(OFF_BMP + (i+3)*320 + 16)

@@ -20,9 +20,13 @@ scr = open(os.path.join(ROOT, "build", "mem_scr.bin"), "rb").read()[2:]
 normal, light, closed = g.office_state("normal"), g.office_state("dorelight"), g.office_state("door_2")
 eb, es = bytearray(normal[0]), bytearray(normal[1])
 for side, col0 in enumerate((2, 29)):
-    src = closed if dstate[side] == 2 else (light if lwant[side] else normal)
+    door = closed if dstate[side] == 2 else (light if lwant[side] else normal)
+    win = light if lwant[side] else normal
+    # door cells: left cols 2-6, right cols 33-37; window cells: left 9-10, right 29-30
+    cells = [(c, door) for c in ((2, 3, 4, 5, 6) if side == 0 else (33, 34, 35, 36, 37))] + \
+            [(c, win) for c in ((9, 10) if side == 0 else (29, 30))]
     for r in range(3, 25):
-        for cx in range(col0, col0 + 9):
+        for cx, src in cells:
             eb[(r * 40 + cx) * 8:(r * 40 + cx) * 8 + 8] = src[0][(r * 40 + cx) * 8:(r * 40 + cx) * 8 + 8]
             es[r * 40 + cx] = src[1][r * 40 + cx]
 lamp = {r * 40 + c for r in range(5) for c in range(17, 23)}      # lamp flicker cells vary

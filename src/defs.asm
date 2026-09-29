@@ -156,3 +156,5 @@
 .label lamp_wait    = $66
 .label lamp_cur     = $67
 .const SFX_SERVO    = 4
+.label zwin          = $69   // main temp: 0 door cells / 1 window cells
+.label wdrawn       = $6a   // 2 bytes: window variant drawn

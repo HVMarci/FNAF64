@@ -75,7 +75,7 @@ The office is one bitmap. The door and light artwork are cut out into small **pa
 row-by-row sweep of the closed patch over the open one with a hazard-stripe edge that follows
 the sweep; opening runs it backwards; lights swap a patch variant. The main loop does the
 copying (`DoorStep`, `LightRender`), the frame IRQ only advances the logic.
-Buttons are sprites (ring + lit overlay). Extras: door-slam **screen shake** (`$d011` scroll),
+Door and window are separate cell ranges of each patch: the door follows the door state, the window follows the light alone, so a lit window shows through even with the door shut. Buttons are sprites (ring + lit overlay) on the outer door frames. Extras: door-slam **screen shake** (`$d011` scroll),
 flickering ceiling lamp (colour cells), light flicker.
 
 ### Cameras and the HUD
