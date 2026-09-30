@@ -14,7 +14,8 @@ movement rules of the original, jumpscares, power outages, and six nights.
 * **Phone Guy**: an automatic call at the start of nights 1–5 – phone ring, subtitles and a synthesised
   mumble instead of speech (`M` mutes it),
 * SID sound effects, background hum, Freddy's music box and the 6 AM chime,
-* a title screen (from `assets/lobby.png`) with night selection.
+* a title screen (from `assets/lobby.png`) with night selection,
+* **night 7, the 20/20/20/20 custom night** (unlocked by beating night 6) and a **pause** key (`P`).
 
 Everything is loaded from a single `.d64` using the **Sparkle 3.3** IRQ fast loader.
 
@@ -36,10 +37,11 @@ Autostart takes a few seconds; the title screen appears once the first files are
 | Key | Action |
 |---|---|
 | `SPACE` | start the night (title) / raise and lower the camera monitor |
-| `1`–`6` on the title | pick a night you have already reached (nights unlock by surviving the previous one) |
+| `1`–`7` on the title | pick a night you have already reached (nights unlock by surviving the previous one; beating night 6 unlocks night 7) |
 | `A` / `L` | toggle left / right **door** |
 | `S` / `K` | hold left / right **light** (only one at a time) |
 | `M` | mute the phone call |
+| `P` | pause / resume (office and monitor only): clock, animatronics, phone and sound stop, the border turns red |
 | `1`–`7` | camera post: `1` cycles 1A/1B/1C, `2` cycles 2A/2B, `4` cycles 4A/4B, `3`, `5`, `6` (kitchen, audio only), `7` |
 | `CRSR →` / `SHIFT+CRSR` | next / previous camera |
 | Joystick port 2 | fire = camera, left/right = doors (office) or prev/next camera, up/down = left/right light |
@@ -76,9 +78,9 @@ Survive from **12 AM to 6 AM** (an in-game hour is 89.2 s, like the original; a 
 Every animatronic gets a **movement opportunity** every 3.02 s (Freddy) or ~5 s (the others). It moves if a
 random number 1–20 is ≤ its **AI level**. Levels at 12 AM per night (Freddy / Bonnie / Chica / Foxy):
 
-| night | 1 | 2 | 3 | 4 | 5 | 6 |
-|---|---|---|---|---|---|---|
-| start | 0/0/0/0 | 0/3/1/1 | 1/0/5/2 | 1-2/2/4/6 | 3/5/7/5 | 4/10/12/16 |
+| night | 1 | 2 | 3 | 4 | 5 | 6 | 7 (custom) |
+|---|---|---|---|---|---|---|---|
+| start | 0/0/0/0 | 0/3/1/1 | 1/0/5/2 | 1-2/2/4/6 | 3/5/7/5 | 4/10/12/16 | 20/20/20/20 |
 
 Bonnie gets +1 at 2 AM (not on night 2), Bonnie / Chica / Foxy get +1 at 3 AM and again at 4 AM.
 Paths: Bonnie 1A → 1B / backstage → west hall / supply closet → west hall corner → left door; Chica 1A → 1B →
@@ -114,7 +116,7 @@ Because rows are independent, the effects are just tables of "which layer does r
 
 ### Office
 The office is one bitmap. The door and light artwork are cut out into small **patches**
-(9 cells wide × 22 rows, 81 bytes per row record) stored in bank 2. A door closing is a
+(22 rows; a record is the 7 cells of one row that are ever copied – 5 door + 2 window cells, 63 bytes) stored in bank 2. A door closing is a
 row-by-row sweep of the closed patch over the open one with a hazard-stripe edge that follows
 the sweep; opening runs it backwards; lights swap a patch variant. The main loop does the
 copying (`DoorStep`, `LightRender`), the frame IRQ only advances the logic.
@@ -176,15 +178,26 @@ whoosh, camera blip, static bursts, footsteps, Freddy's laugh, the doorway sting
 pots and pans, groan, Foxy's knocks.
 
 ### Memory map
+`tools/memmap.py` prints the real map of the last build (every region, the free gaps, the headroom of each code
+segment); this is its summary. Bank 2 is never displayed, so it holds plain data and the bulk of the code.
 ```
 $0160-$03ff Sparkle resident code + buffer
-$0400 office colours   $0800 sprites   $0c00 tables   $0d00 font copy   $0f00 game variables   $1000 code
-$2000 office bitmap    $4000 camera colours  $4400 tables/strings ($47c0 subtitle colours)  $4800 sprites  $4a40 phone text
-$4c00 code  $6000 camera bitmap ($7e00 subtitle pixels)
-$8000 door/light patches (5 variants per side)  $b900 sound + tables
+$0400 office colours   $0800 sprites   $0a40 fan frames   $0c00 tables   $0d00 font copy   $0f00 game variables
+$1000 Code1 (IRQ engine, display, door animation; ~80 bytes spare)   $2000 office bitmap
+$4000 camera colours   $4400 Code4 (tables/strings; $47c0 subtitle colours)   $4800 sprites   $4a40 phone text
+$4c00 Code2 (state machine, AI, HUD, phone)   $6000 camera bitmap ($7e00 subtitle pixels)
+$8000-$ac4b door/light patches (11340 bytes)
+$ad00-$be3f Code3 (sound, pause, tables, test harness; ~3 KB spare)   $be40 fan frames
 $c000.. noise/bar screens (also under I/O), $c800 sprites, $e000 noise bitmap
 ```
-`tools/check_layout.py` runs on every build and fails if any of these overlap.
+`tools/check_layout.py` runs on every build and fails if anything that lives in RAM at the same time overlaps; the
+region list lives in `tools/layout.py`. **Where new code goes:** Code3 is the spare segment (`.segment Code3`
+before the code); Code1 holds the timing-critical IRQ code and is nearly full.
+
+Memory history: the patch records used to carry the two unused cells between door and window (9 cells, 81 bytes
+per record, 14580 bytes in all); packing them to the 7 cells that are copied saved 3240 bytes, and Code3 moved
+into that space, which took the spare code room from about 760 to about 4100 bytes. The test harness (with its
+long key scripts) moved there too – it used to overflow Code2, which silently broke `scen_consist`.
 
 ## Repository layout
 
@@ -192,8 +205,9 @@ $c000.. noise/bar screens (also under I/O), $c800 sprites, $e000 noise bitmap
 assets/            the supplied Multipaint art (used as is)
 Sparkle3.3/        Sparkle distribution (unchanged; tools/sparkle is a copy of the Linux binary)
 src/               6510 source (KickAssembler): main.asm (IRQ, state machine, display), game.asm (AI, clock,
-                   power), hud.asm (text), sound.asm, defs.asm, test.asm
-tools/             asset pipeline (gen_assets.py, c64img.py, mksls.py), KickAss, sparkle, test runner
+                   power), hud.asm (text), phone.asm, sound.asm, pause.asm, defs.asm, test.asm
+tools/             asset pipeline (gen_assets.py, c64img.py, mksls.py), memory tools (layout.py, check_layout.py,
+                   memmap.py), KickAss, sparkle, test runner
 build/             generated files (converted assets in build/gen, disk images)
 dist/fnaf64.d64    the game
 tests/             scripted emulator tests
@@ -201,7 +215,7 @@ tests/             scripted emulator tests
 
 The build: `gen_assets.py` converts PNGs (hires office + patches, dark offices, multicolor camera pictures,
 jumpscares, sprites, title with key legend) → KickAssembler builds 4 code segments → `mksls.py` writes the
-Sparkle script → `sparkle` builds the disk (~450 blocks of 664).
+Sparkle script → `sparkle` builds the disk (~460 blocks of 664).
 
 ## Testing
 
@@ -214,7 +228,11 @@ positions), `POWER`, `DEFINES = ["FASTHOUR"]` (12 s hours) and `DUMP = "0f00 0f2
 `tools/aidump.py` prints the game variables from it).
 
 ```
+tests/run_suite.sh                    # THE FULL SUITE (~15 min): the build + layout check, every scenario and its
+                                      # dump checks, 3 fuzz seeds, door/light mid-animation, consistency; PASS/FAIL list
+BASE=old_shots tests/run_suite.sh     # ... and pixel-compare build/shots with an earlier run (tests/compare_shots.py)
 tests/run_all.sh [x64sc|x64]          # every scenario in tests/scenarios/ (NTSC=1 for NTSC)
+python3 tools/memmap.py               # memory map and free space of the last build
 python3 tests/fuzz.py 3 2500          # random input, then checks the office bitmap in C64
                                       # memory equals what the door/light state requires
 python3 tools/runtest.py tests/scenarios/scen_ai_bonnie.py    # e.g. Bonnie walking to the door
@@ -222,12 +240,15 @@ python3 tools/runtest.py tests/scenarios/scen_ai_bonnie.py    # e.g. Bonnie walk
 Scenarios that cover the new game: `scen_flow` (title → night card → office → camera), `scen_ai_*`
 (Bonnie, Foxy, Freddy), `scen_scare_bonnie` (jumpscare sequence), `scen_power` (power outage),
 `scen_win` (6 AM and the next night), `scen_doorway` (hall lights show Bonnie / Chica), `scen_gallery1-3`
-(every camera with different animatronic positions).
+(every camera with different animatronic positions), `scen_night7` / `scen_night7_play` / `scen_unlock7`
+(the custom night: title choice, levels, unlock by beating night 6), `scen_pause` (clock and sound freeze, resume).
+Scenarios with a `tests/check_dumps.py` check fail the suite when the game variables are wrong; the others are
+screenshots to look at (random static and disk timing make pixel-exact comparisons differ slightly between runs).
 
 ## Known limitations / next steps
 * Camera switch ≈ 1 s (1541 random access + decompression); more RAM would allow caching pictures.
 * Bonnie's and Freddy's jumpscares are improvised from existing art (no jumpscare pictures were supplied).
-* Not implemented: Golden Freddy, the 20/20/20/20 custom night, real speech for the phone calls, score / save (the reached night
+* Not implemented: Golden Freddy, a custom night with adjustable levels (night 7 is the fixed 20/20/20/20 one), real speech for the phone calls, score / save (the reached night
   is only kept while the machine is on), animatronic art *inside* the office besides Bonnie / Chica in the
   hall-light windows.
 * Some details are simplified: Foxy's aggravation level, the exact camera-glitch timings, Freddy's stage-by-stage

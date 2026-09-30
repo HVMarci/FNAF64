@@ -207,7 +207,11 @@ def gen_frames_asm():
 # ---------------------------------------------------------------- office
 PATCH_ROW0, PATCH_ROWS, PATCH_COLS = 3, 22, 9
 LEFT_COL0, RIGHT_COL0 = 2, 29
-REC_SIZE = PATCH_COLS * 8 + PATCH_COLS  # 81 bytes: 72 bitmap + 9 screen
+# Only 7 of the 9 cells in a patch's span are ever copied: 5 door cells and 2 window cells (the 2 between
+# them stay as they are), so a packed record is 7*8 bitmap + 7 screen bytes = 63 (src/defs.asm, CopyRec).
+PATCH_CELLS = {LEFT_COL0: (0, 1, 2, 3, 4, 7, 8),       # door, then window
+               RIGHT_COL0: (0, 1, 4, 5, 6, 7, 8)}      # window, then door
+REC_SIZE = len(PATCH_CELLS[LEFT_COL0]) * 9              # 63
 
 
 def office_state(name):
@@ -219,9 +223,10 @@ def patch_records(state, col0, rows=None):
     recs = []
     for r in (rows if rows is not None else range(PATCH_ROW0, PATCH_ROW0 + PATCH_ROWS)):
         b = bytearray()
-        for cx in range(col0, col0 + PATCH_COLS):
+        for c in PATCH_CELLS[col0]:
+            cx = col0 + c
             b += bmp[(r * 40 + cx) * 8:(r * 40 + cx) * 8 + 8]
-        s = bytes(scr[r * 40 + col0:r * 40 + col0 + PATCH_COLS])
+        s = bytes(scr[r * 40 + col0 + c] for c in PATCH_CELLS[col0])
         recs.append(bytes(b) + s)
     return recs
 
@@ -234,7 +239,7 @@ def gen_office():
     open(os.path.join(OUT, "office.bmp"), "wb").write(normal[0])
     open(os.path.join(OUT, "office.scr"), "wb").write(normal[1])
     anim = office_state("animatronics")
-    # patches: per side: N(22) L(22) C(22) S(2) A(22)  -> 90 records of 81 bytes
+    # patches: per side: N(22) L(22) C(22) S(2) A(22)  -> 90 records of 63 bytes
     # A = light on with Bonnie (left) / Chica (right) standing in the doorway or window
     out = bytearray()
     for col0 in (LEFT_COL0, RIGHT_COL0):
@@ -460,7 +465,7 @@ TITLE_KEYS = [
     ("A DOOR   S LIGHT  LEFT", 170),
     ("L DOOR   K LIGHT  RIGHT", 177),
     ("SPACE CAMERA  1-7 CAMS", 184),
-    ("M MUTE PHONE CALL", 191),
+    ("M MUTE PHONE CALL  P PAUSE", 191),
 ]
 
 

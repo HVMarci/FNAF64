@@ -9,7 +9,7 @@
 
 .segmentdef Code1 [start=$1000, max=$1fff]
 .segmentdef Code2 [start=$4c00, max=$5fff]
-.segmentdef Code3 [start=$b900, max=$bfff]
+.segmentdef Code3 [start=$ad00, max=$be3f]   // bank 2 after the patches ($8000-$ac4b); $be40.. holds the fan frames
 .segmentdef Code4 [start=$4400, max=$47bf]   // $47c0.. is the subtitle row screen RAM
 .file [name="code1.prg", segments="Code1"]
 .file [name="code2.prg", segments="Code2"]
@@ -162,7 +162,7 @@ InitState:
         lda #LAY_OFFICE
 #else
 #if TEST
-        lda #6                  // every night selectable in test builds
+        lda #NIGHTS             // every night selectable in test builds
         sta g_maxnight
 #endif
         lda #M_TITLE
@@ -332,16 +332,21 @@ IrqTick:
 #if TEST
         jsr TestOverride
 #endif
+        jsr PauseLogic          // P: freeze the game (the display keeps running)
+        bne it_paused
         jsr StateMachine
         jsr GameTick
         jsr PhoneTick
+it_paused:
         jsr SubOverlay
         jsr BuildTables
         jsr SpriteUpdate
         jsr ShakeUpdate
         jsr LampUpdate
+        lda g_pause
+        bne !+
         jsr SndTick
-        lda chain_on
+!:      lda chain_on
         beq !+
         lda #<IrqRow
         sta $fffe
@@ -422,6 +427,12 @@ si_p:   lda #1
 si_s:   sta keyraw,x
         dex
         bpl si1
+        lda #$df                // P: pause (column 5, row 1)
+        sta $dc00
+        lda $dc01
+        and #$02
+        eor #$02
+        sta p_key
         lda #$ff
         sta $dc00
         lda $dc00
@@ -638,11 +649,11 @@ sm_title:
         sta sprmode
         lda #LAY_TITLE
         jsr SetAll
-        lda evdigit             // 1..6 choose an unlocked night
+        lda evdigit             // 1..7 choose an unlocked night
         beq st_nodig
         cmp g_night
         beq st_nodig
-        cmp #7
+        cmp #NIGHTS+1
         bcs st_nodig
         cmp g_maxnight
         beq st_dig
@@ -1501,11 +1512,14 @@ wn_finish:
         jsr AdvanceNight
         jmp GoTitle
 
-AdvanceNight:
+AdvanceNight:                   // nights 1-5: the next one; night 6 unlocks night 7 (the custom night); back to 1
         lda g_night
         cmp #6
-        bne an_inc
-        lda #1
+        bcc an_inc
+        bne an_one
+        lda #NIGHTS
+        sta g_maxnight
+an_one: lda #1
         sta g_night
         rts
 an_inc: inc g_night
@@ -2232,13 +2246,13 @@ cr_copy:
         tax
         clc
         lda zsrc
-        adc boff,x
+        adc bsrc,x
         sta zsrc
         bcc !+
         inc zsrc+1
 !:      clc
         lda zdb
-        adc boff,x
+        adc bdst,x
         sta zdb
         bcc !+
         inc zdb+1
@@ -2251,7 +2265,7 @@ cr_copy:
         bpl !-
         clc
         lda zsrc
-        adc sadv,x
+        adc ssadv,x
         sta zsrc
         bcc !+
         inc zsrc+1
@@ -2270,7 +2284,7 @@ cr_copy:
         bpl !-
         rts
 
-// zsrc = side base + variant offset + row*81
+// zsrc = side base + variant offset + row*REC_SZ
 CopyRecSrc:
         ldx zside
         ldy zvar
@@ -2284,10 +2298,10 @@ CopyRecSrc:
         ldy zrow
         clc
         lda zsrc
-        adc mul81_lo,y
+        adc mulrec_lo,y
         sta zsrc
         lda zsrc+1
-        adc mul81_hi,y
+        adc mulrec_hi,y
         sta zsrc+1
         rts
 
@@ -2341,9 +2355,6 @@ lr_ret: rts
 .import source "game.asm"
 .import source "hud.asm"
 .import source "phone.asm"
-#if TEST
-.import source "test.asm"
-#endif
 
 //==============================================================================
 .segment Code3
@@ -2407,14 +2418,16 @@ sbase_hi:   .byte >PATCHES, >(PATCHES+SIDE_SZ)
 voff_lo:    .byte <P_N, <P_L, <P_C, <P_S, <P_A
 voff_hi:    .byte >P_N, >P_L, >P_C, >P_S, >P_A
 // door / window sub-ranges of a record: part = side*2 + window
+// (source offsets are inside the packed record, destination offsets inside the 9-cell span on screen)
 //              L door  L win  R door  R win
-boff:       .byte 0,     56,    32,     0
+bsrc:       .byte 0,     40,    16,     0      // bitmap bytes: offset in the record
+bdst:       .byte 0,     56,    32,     0      //               offset from the span's first cell
 blen:       .byte 40,    16,    40,     16
-soff:       .byte 0,     7,     4,      0
+ssadv:      .byte 56,    21,    42,     56     // screen bytes: from the start of the bitmap part above
+soff:       .byte 0,     7,     4,      0      //               offset from the span's first cell
 slen:       .byte 5,     2,      5,     2
-sadv:       .byte 72,    23,    44,     72
-mul81_lo:   .fill 22, <(i*81)
-mul81_hi:   .fill 22, >(i*81)
+mulrec_lo:  .fill 22, <(i*REC_SZ)
+mulrec_hi:  .fill 22, >(i*REC_SZ)
 rbl_lo:     .fill 22, <(OFF_BMP + (i+3)*320 + 16)
 rbl_hi:     .fill 22, >(OFF_BMP + (i+3)*320 + 16)
 rbr_lo:     .fill 22, <(OFF_BMP + (i+3)*320 + 232)
@@ -2423,3 +2436,13 @@ rsl_lo:     .fill 22, <(OFF_SCR + (i+3)*40 + 2)
 rsl_hi:     .fill 22, >(OFF_SCR + (i+3)*40 + 2)
 rsr_lo:     .fill 22, <(OFF_SCR + (i+3)*40 + 29)
 rsr_hi:     .fill 22, >(OFF_SCR + (i+3)*40 + 29)
+
+.import source "pause.asm"
+
+//------------------------------------------------------------------------------
+// Test harness (test builds only): key script + snapshot hooks. Lives in the spare segment so that
+// long scenario scripts never compete with the game for room.
+//------------------------------------------------------------------------------
+#if TEST
+.import source "test.asm"
+#endif

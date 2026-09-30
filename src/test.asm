@@ -61,7 +61,11 @@ TestOverride:
         lda tk_b
         sta kb_now
         lda tk_c
+        and #$1f
         sta kc_now
+        lda tk_c                // bit 5: the P key
+        and #$20
+        sta p_key
         rts
 
 snap_tab:

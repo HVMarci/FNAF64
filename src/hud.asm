@@ -871,8 +871,10 @@ ord5:       .text "5TH NIGHT"
             .byte $ff
 ord6:       .text "6TH NIGHT"
             .byte $ff
-ord_lo:     .byte <ord1, <ord2, <ord3, <ord4, <ord5, <ord6
-ord_hi:     .byte >ord1, >ord2, >ord3, >ord4, >ord5, >ord6
+ord7:       .text "7TH NIGHT"
+            .byte $ff
+ord_lo:     .byte <ord1, <ord2, <ord3, <ord4, <ord5, <ord6, <ord7
+ord_hi:     .byte >ord1, >ord2, >ord3, >ord4, >ord5, >ord6, >ord7
 
 mc_tab:     .fill 16, (floor(i/8)&1)*$40 + (floor(i/4)&1)*$10 + (floor(i/2)&1)*$04 + (i&1)*$01
 dbl_tab:    .fill 16, (floor(i/8)&1)*$c0 + (floor(i/4)&1)*$30 + (floor(i/2)&1)*$0c + (i&1)*$03

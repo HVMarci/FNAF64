@@ -819,8 +819,9 @@ ai_tab:     .byte 0, 0, 0, 0                    // night 1  (Freddy, Bonnie, Chi
             .byte 1, 2, 4, 6                    // night 4  (Freddy: 1 or 2)
             .byte 3, 5, 7, 5                    // night 5
             .byte 4, 10, 12, 16                 // night 6
-bump2_tab:  .byte 1, 0, 1, 1, 1, 1              // Bonnie +1 at 2 AM (all nights but the 2nd)
-pass_tab:   .byte 0, 255, 240, 200, 180, 180    // passive drain: 1 % every n deciseconds
+            .byte 20, 20, 20, 20                // night 7: the 20/20/20/20 custom night
+bump2_tab:  .byte 1, 0, 1, 1, 1, 1, 0           // Bonnie +1 at 2 AM (all nights but the 2nd; nothing to add at 20)
+pass_tab:   .byte 0, 255, 240, 200, 180, 180, 150   // passive drain: 1 % every n deciseconds
 
 // Freddy's next room (index = room): 1A>1B>7>6>4A>4B
 fnext_tab:  .byte 1, 10, 0, 0, 0, 0, 7, 0, 0, 6, 9

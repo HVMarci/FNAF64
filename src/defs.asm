@@ -9,7 +9,7 @@
 //          $1000 code                     $2000 office hires bitmap
 //  bank 1  $4000 camera screen RAM        $4800 sprite images
 //          $4c00 code                     $6000 camera multicolor bitmap
-//  bank 2  (never displayed) $8000 door/light patches, $ac00 code + data
+//  bank 2  (never displayed) $8000 door/light patches, $ad00 code + data
 //  bank 3  $c000.. noise / bar screens    $c800 sprite images
 //          $e000 noise bitmap
 //
@@ -25,13 +25,17 @@
 .const SPR_PTR      = $20
 
 .const PATCHES      = $8000
-.const REC_SZ       = 81
-.const SIDE_SZ      = 7290
+// Patch records: one text row of one side, packed to the 7 cells that are ever copied (5 door + 2 window cells;
+// the 2 cells between them are not): 56 bitmap bytes + 7 screen bytes. Layout per side (tools/gen_assets.py):
+//   N(22) L(22) C(22) S(2) A(22) records.  Left record:  door bmp 0-39, window bmp 40-55, door scr 56-60, window scr 61-62
+//                                          Right record: window bmp 0-15, door bmp 16-55, window scr 56-57, door scr 58-62
+.const REC_SZ       = 63
+.const SIDE_SZ      = 90*REC_SZ
 .const P_N          = 0
-.const P_L          = 1782
-.const P_C          = 3564
-.const P_S          = 5346
-.const P_A          = 5508      // light on + Bonnie / Chica in the doorway
+.const P_L          = 22*REC_SZ
+.const P_C          = 44*REC_SZ
+.const P_S          = 66*REC_SZ
+.const P_A          = 68*REC_SZ    // light on + Bonnie / Chica in the doorway
 
 // layers (row sources)
 .const LAY_OFFICE   = 0
@@ -87,6 +91,7 @@
 .const EV_MUTE      = $20
 
 .const NUM_CAMS     = 11
+.const NIGHTS       = 7         // 1-6 the story, 7 = custom night (every animatronic at level 20)
 
 // zero page ------------------------------------------------------------------
 .label zsa          = $10
@@ -186,7 +191,7 @@
 //------------------------------------------------------------------------------
 .const FONT         = $0d00
 .label gv           = $0f00
-.label g_night      = gv+0      // 1..6
+.label g_night      = gv+0      // 1..7
 .label g_maxnight   = gv+1
 .label g_act        = gv+2      // 1 while the night clock and the animatronics run
 .label g_hour       = gv+3      // 0 (12 AM) .. 6
@@ -223,6 +228,9 @@
 .label forcedown    = gv+46
 .label blank        = gv+47
 .label knock        = gv+48
+.label g_pause      = gv+52     // 1 while paused (P)
+.label p_key        = gv+53     // P key down now
+.label p_prev       = gv+54     // ... and in the previous frame
 .label knock_tm     = gv+49
 .label kitchen_tm   = gv+50
 .label groan_tm     = gv+51

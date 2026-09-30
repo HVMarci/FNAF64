@@ -5,7 +5,7 @@ usage: runtest.py scenario.py [outdir]
 
 scenario.py defines  STEPS = [(frame, keys, 'snapname'), ...]
 keys is a string of key names held from that frame on:
-  A S K L (doors/lights)  SPACE  1-7  RIGHT LEFT  JL JR JF JU JD
+  A S K L (doors/lights)  SPACE  1-7  RIGHT LEFT  M  P (pause)  JL JR JF JU JD
 A snapshot named 'snapname' (or '' for none) is taken at that frame.
 """
 import os, re, subprocess, sys, shutil
@@ -13,7 +13,7 @@ import os, re, subprocess, sys, shutil
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KA = {"A": 0x01, "S": 0x02, "K": 0x04, "L": 0x08, "SPACE": 0x10, "LEFT": 0x20, "RIGHT": 0x40, "M": 0x80}
 KB = {str(i): 1 << (i - 1) for i in range(1, 8)}
-KC = {"JL": 1, "JR": 2, "JF": 4, "JU": 8, "JD": 16}
+KC = {"JL": 1, "JR": 2, "JF": 4, "JU": 8, "JD": 16, "P": 32}
 
 
 def keys_to_bytes(s):
