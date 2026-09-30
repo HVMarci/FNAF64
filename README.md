@@ -184,9 +184,10 @@ Bonnie and Freddy have no jumpscare art in `assets/`, so they are made from the 
 ### Sound
 The tunes are plucked (attack/decay envelope, gate off between notes): a pulse-wave bell for the 6 AM chime and a
 triangle music box for Freddy. Both follow the original game: the 6 AM chime is the Westminster chime (`E C D G – G D E C`,
-played here as `G# E F# B – B F# G# E`), Freddy's music box is the *Toreador March* refrain from Bizet's *Carmen* in F# major
-(the key of the original recording; the notes come from FNaF transcriptions and were checked against the pitches of the
-game's `Music_box.ogg`). `WAV=out.wav python3 tools/runtest.py scenario.py` records the SID output (real-time,
+played here as `G# E F# B – B F# G# E`), Freddy's music box is the *Toreador March* from Bizet's *Carmen* in F# major (the key of the
+original recording): the whole 47-beat loop – refrain, middle part and the run back to the start – with pitches and
+rhythm taken from a music-box MIDI transcription (melody line only, 0.56 s per beat) and checked against the pitches of
+the game's `Music_box.ogg`. `WAV=out.wav python3 tools/runtest.py scenario.py` records the SID output (real-time,
 no warp) and `tools/wavstat.py out.wav` prints level and pitch per second, which is how a stuck tone was found.
 
 SID voice 1: fan rumble through the low-pass filter. Voice 2: 100 Hz light buzz / camera hiss, and the
