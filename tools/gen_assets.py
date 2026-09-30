@@ -112,9 +112,16 @@ def draw_plate(cv, col0, row0, cols, rows, color=0):
             cv[y][x] = color
 
 
+# Runtime HUD fields in the camera view (cell coordinates; src/main.asm draws text there).
+# They are baked as empty black plates so the runtime only has to write glyph pixels.
+CAM_HUD_PLATES = [(29, 4, 10, 1), (25, 5, 14, 1), (1, 22, 23, 2)]     # col, row, cols, rows
+
+
 def hud_overlay(cv, camidx):
     """Draw label + camera map with the given camera highlighted."""
     name, _, title, _ = CAMS[camidx]
+    for (pc, pr, pw, ph) in CAM_HUD_PLATES:
+        draw_plate(cv, pc, pr, pw, ph, 0)
     # title plate
     label = "CAM %s - %s" % (name, title)
     cols = len(label)
@@ -175,6 +182,28 @@ def gen_cams():
     return files
 
 
+def frame_counts():
+    n = []
+    for name, adir, title, _ in CAMS:
+        if adir is None:
+            n.append(1)
+        else:
+            n.append(len(glob.glob(os.path.join(ASSETS, "camera", adir, "[0-9].png"))))
+    return n
+
+
+def gen_frames_asm():
+    n = frame_counts()
+    first, acc = [], 0
+    for c in n:
+        first.append(acc)
+        acc += c
+    with open(os.path.join(OUT, "frames.asm"), "w") as f:
+        f.write("cam_first: .byte %s\n" % ",".join(map(str, first)))
+        f.write("cam_nfr:   .byte %s\n" % ",".join(map(str, n)))
+        f.write(".const NUM_FRAMES = %d\n" % acc)
+
+
 # ---------------------------------------------------------------- office
 PATCH_ROW0, PATCH_ROWS, PATCH_COLS = 3, 22, 9
 LEFT_COL0, RIGHT_COL0 = 2, 29
@@ -204,13 +233,20 @@ def gen_office():
     half = office_state("door_1")
     open(os.path.join(OUT, "office.bmp"), "wb").write(normal[0])
     open(os.path.join(OUT, "office.scr"), "wb").write(normal[1])
-    # patches: per side: N(22) L(22) C(22) S(2)  -> 68 records of 81 bytes
+    anim = office_state("animatronics")
+    # patches: per side: N(22) L(22) C(22) S(2) A(22)  -> 90 records of 81 bytes
+    # A = light on with Bonnie (left) / Chica (right) standing in the doorway or window
     out = bytearray()
     for col0 in (LEFT_COL0, RIGHT_COL0):
         for st in (normal, light, closed):
             out += b"".join(patch_records(st, col0))
         out += b"".join(patch_records(half, col0, rows=[11, 12]))
+        out += b"".join(patch_records(anim, col0))
     open(os.path.join(OUT, "patches.bin"), "wb").write(out)
+    for name, fn in (("dark", "dark"), ("dark freddy", "darkfreddy")):
+        b, sc = office_state(name)
+        open(os.path.join(OUT, fn + ".bmp"), "wb").write(b)
+        open(os.path.join(OUT, fn + ".scr"), "wb").write(sc)
     return normal
 
 
@@ -370,7 +406,65 @@ def gen_title():
     render_hires(b, s).resize((640, 400), Image.NEAREST).save(os.path.join(OUT, "prev_title.png"))
 
 
+# ------------------------------------------------------------ jumpscares
+# who: 0 Freddy, 1 Bonnie, 2 Chica, 3 Foxy  (two frames each: the scare and a lunge)
+JS_KIND = {0: "hires", 1: "mc", 2: "hires", 3: "hires"}
+
+
+def zoom2(idx, x0, y0, w, h):
+    """Nearest-neighbour 2x zoom of a w x h window (returned as a full-size image)."""
+    return [[idx[y0 + y // 2][x0 + x // 2] for x in range(w * 2)] for y in range(h * 2)]
+
+
+def write_hires(name, idx):
+    b, sc = hires_convert(idx)
+    base = os.path.join(OUT, name)
+    open(base + ".bmp", "wb").write(b)
+    open(base + ".scr", "wb").write(sc)
+    return render_hires(b, sc)
+
+
+def write_mc(name, cv):
+    b, sc, col = mc_convert(cv)
+    base = os.path.join(OUT, name)
+    open(base + ".bmp", "wb").write(b)
+    open(base + ".scr", "wb").write(sc)
+    open(base + ".col", "wb").write(col)
+    return render_mc(b, sc, col)
+
+
+def gen_jumpscares():
+    prev = []
+    # Freddy: the title-screen face without the text, then a 2x zoom on the eye / muzzle
+    lobby = load_indexed(os.path.join(ASSETS, "lobby.png"))
+    for y in range(200):
+        for x in range(140):
+            lobby[y][x] = 0
+    prev.append(write_hires("js_0_0", lobby))
+    prev.append(write_hires("js_0_1", zoom2(lobby, 148, 40, 160, 100)))
+    # Bonnie: the close-up from the supply closet, then a 2x zoom on the face
+    cab = mc_canvas_from_indexed(load_indexed(os.path.join(ASSETS, "camera", "cabinet", "2.png")))
+    prev.append(write_mc("js_1_0", cab))
+    z = [[cab[24 + y // 2][20 + x // 2] for x in range(160)] for y in range(200)]
+    prev.append(write_mc("js_1_1", z))
+    for who, d in ((2, "chica"), (3, "foxy")):
+        for f in (1, 2):
+            idx = load_indexed(os.path.join(ASSETS, "jumpscare", d, "%d.png" % f))
+            prev.append(write_hires("js_%d_%d" % (who, f - 1), idx))
+    sheet = Image.new("RGB", (640, 800))
+    for i, im in enumerate(prev):
+        sheet.paste(im.resize((160, 100)), ((i % 4) * 160, (i // 4) * 100))
+    sheet.save(os.path.join(OUT, "prev_jumpscares.png"))
+
+
+def gen_news():
+    write_hires("news", load_indexed(os.path.join(ASSETS, "newspaper.png")))
+
+
 if __name__ == "__main__":
+    gen_frames_asm()
+    gen_jumpscares()
+    gen_news()
     gen_title()
     normal = gen_office()
     gen_lamp(normal)

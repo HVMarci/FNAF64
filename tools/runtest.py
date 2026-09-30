@@ -44,16 +44,23 @@ def main():
             sid = len(snaps)
         lines.append("  .word %d\n  .byte %d,%d,%d,%d" % (frame, a, b, c, sid))
     lines.append("  .word $ffff\n  .byte 0,0,0,0")
+    lines.append(".label TEST_NIGHT = %d" % ns.get("NIGHT", 1))
+    lines.append(".label TEST_POWER = %d" % ns.get("POWER", 100))
+    for i, v in enumerate(ns.get("AI", (255, 255, 255, 255))):
+        lines.append(".label TEST_AI%d = %d" % (i, v))
+    for i, v in enumerate(ns.get("POS", (255, 255, 255, 255))):
+        lines.append(".label TEST_POS%d = %d" % (i, v))
     open(os.path.join(ROOT, "build", "test_script.asm"), "w").write("\n".join(lines) + "\n")
     env = dict(os.environ)
+    env["KADEFS"] = " ".join("-define " + d for d in ns.get("DEFINES", []))
     if ns.get("TITLE"): env["TITLE"] = "1"
     else: env.pop("TITLE", None)
     subprocess.check_call([os.path.join(ROOT, "build.sh"), "test"], stdout=subprocess.DEVNULL, env=env)
     sym = open(os.path.join(ROOT, "build", "main.sym")).read()
     m = re.search(r"\.label snapstubs=\$([0-9a-f]+)", sym)
     base = int(m.group(1), 16)
-    mon = []
-    cp = 0
+    mon = list(ns.get("MON", []))
+    cp = ns.get("MON_CP", 0)
     for i, name in enumerate(snaps):
         cp += 1
         mon.append("break %04x" % (base + i))

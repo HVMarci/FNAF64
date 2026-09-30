@@ -73,5 +73,7 @@ snapstubs:
         .fill 40, $60           // 40 x rts (one per snapshot id)
 .import source "../build/test_script.asm"
 
+test_ai:  .byte TEST_AI0, TEST_AI1, TEST_AI2, TEST_AI3
+test_pos: .byte TEST_POS0, TEST_POS1, TEST_POS2, TEST_POS3
 LoadStartHook: rts
 LoadEndHook:   rts

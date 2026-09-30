@@ -4,7 +4,7 @@ set -e
 cd "$(dirname "$0")"
 DEFS=""
 NAME=fnaf64
-if [ "$1" = "test" ]; then DEFS="-define TEST"; NAME=fnaf64_test; if [ -z "$TITLE" ]; then DEFS="$DEFS -define SKIPTITLE"; fi; fi
+if [ "$1" = "test" ]; then DEFS="-define TEST $KADEFS"; NAME=fnaf64_test; if [ -z "$TITLE" ]; then DEFS="$DEFS -define SKIPTITLE"; fi; fi
 mkdir -p build
 python3 tools/gen_assets.py
 if [ "$1" != "test" ]; then : > build/test_script.asm; fi

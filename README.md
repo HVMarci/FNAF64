@@ -1,17 +1,18 @@
 # Five Nights at Freddy's – Commodore 64
 
-A port of the first *Five Nights at Freddy's* to the C64. This first milestone implements the
-**basic office mechanics** with a lot of attention on the visuals:
+A port of the first *Five Nights at Freddy's* to the C64: the office with its doors, hall lights and
+camera monitor **and now the actual game** – a night clock, power, four animatronics that follow the
+movement rules of the original, jumpscares, power outages, and six nights.
 
 * the office with two **doors** and two **hall lights**,
 * the **security camera monitor** that flips up/down over the office,
-* **11 camera posts** (1A–7) with a clickable-style camera map,
+* **11 camera posts** (1A–7) with a camera map; every picture changes with what is standing in the room,
+* **Freddy, Bonnie, Chica and Foxy** moving by the original AI rules (see below),
+* **clock (12 AM – 6 AM), power and usage**, power outage sequence, **jumpscares**, game over,
+  6 AM win screen, night 1–6 with the original AI level tables,
 * camera **static / noise / signal glitches**, door slide animation, screen shake, lamp flicker,
-* SID sound effects and background hum,
-* a title screen (from `assets/lobby.png`).
-
-Animatronic movement, night clock, power, jump-scares and the game end are **not** in yet
-(the art for them is in `assets/` and the camera frames are already converted by the build).
+* SID sound effects, background hum, Freddy's music box and the 6 AM chime,
+* a title screen (from `assets/lobby.png`) with night selection.
 
 Everything is loaded from a single `.d64` using the **Sparkle 3.3** IRQ fast loader.
 
@@ -32,9 +33,10 @@ Autostart takes a few seconds; the title screen appears once the first files are
 
 | Key | Action |
 |---|---|
-| `SPACE` | start game (title) / raise and lower the camera monitor |
+| `SPACE` | start the night (title) / raise and lower the camera monitor |
+| `1`–`6` on the title | pick a night you have already reached (nights unlock by surviving the previous one) |
 | `A` / `L` | toggle left / right **door** |
-| `S` / `K` | hold left / right **light** |
+| `S` / `K` | hold left / right **light** (only one at a time) |
 | `1`–`7` | camera post: `1` cycles 1A/1B/1C, `2` cycles 2A/2B, `4` cycles 4A/4B, `3`, `5`, `6` (kitchen, audio only), `7` |
 | `CRSR →` / `SHIFT+CRSR` | next / previous camera |
 | Joystick port 2 | fire = camera, left/right = doors (office) or prev/next camera, up/down = left/right light |
@@ -43,6 +45,44 @@ The key letters are printed on the button icons next to the doors.
 Switching a camera streams the new picture from disk, which takes about a second – the
 monitor shows static meanwhile. Re-opening the monitor on the camera that is already loaded is
 instant.
+
+## How to play
+
+Survive from **12 AM to 6 AM** (an in-game hour is 89.2 s, like the original; a night takes about 9 minutes).
+
+* **Power** starts at 100 %. Standing around costs 1 % per 9.6 s; the monitor, every closed door and every
+  lit hall light add to the *usage* (the bars under the power number) and drain it faster. From night 2 on there
+  is an extra passive drain. At 0 % the office goes dark: Freddy's music box plays, the lights flicker
+  out and he gets you – unless it is 6 AM first.
+* **Bonnie** (left) and **Chica** (right) wander through the pizzeria and finally show up in a doorway. Hold the
+  hall light to see them and **close the door** – they leave. If the door is open they get in and kill you the
+  next time you lower the monitor (if you keep it up they pull it down themselves after a few seconds). While one
+  is inside, that side's door and light are dead.
+* **Foxy** hides in Pirate Cove (cam 1C) and gets bolder the longer you do *not* use the monitor (any camera
+  counts). When the curtain is empty he sprints down the west hall (watch cam 2A) – close the left door.
+  He bangs on it and takes 1 %, 6 %, 11 % … of your power each time; an open door means the jumpscare.
+* **Freddy** only walks while the monitor is down and stops while you look at him. When he is in the east hall
+  corner (4B) he comes in as soon as you look at any *other* camera with the right door open – so keep that
+  door closed while you use the monitor away from 4B, and watch 4B. Once he is inside he kills at random
+  (25 % per second) while the monitor is down.
+* Cameras: the picture shows whoever stands in that room. When somebody moves in the room you are watching the
+  feed breaks up for a moment. Chica clatters pots in the kitchen (cam 6 is audio only).
+
+### Animatronic AI (from the FNaF wiki / community AI guides)
+
+Every animatronic gets a **movement opportunity** every 3.02 s (Freddy) or ~5 s (the others). It moves if a
+random number 1–20 is ≤ its **AI level**. Levels at 12 AM per night (Freddy / Bonnie / Chica / Foxy):
+
+| night | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| start | 0/0/0/0 | 0/3/1/1 | 1/0/5/2 | 1-2/2/4/6 | 3/5/7/5 | 4/10/12/16 |
+
+Bonnie gets +1 at 2 AM (not on night 2), Bonnie / Chica / Foxy get +1 at 3 AM and again at 4 AM.
+Paths: Bonnie 1A → 1B / backstage → west hall / supply closet → west hall corner → left door; Chica 1A → 1B →
+restrooms / kitchen → east hall → east hall corner → right door; Freddy the same way as Chica but in a straight
+line and only after Bonnie and Chica left the stage; Foxy 1C → west hall. After a closed door Bonnie returns to the
+dining area and Chica to the east hall; Foxy returns to his cove.
+The AI is in `src/game.asm` (tables at the end of the file).
 
 ## How it works
 
@@ -79,21 +119,48 @@ Door and window are separate cell ranges of each patch: the door follows the doo
 flickering ceiling lamp (colour cells), light flicker.
 
 ### Cameras and the HUD
-Each camera picture is converted to a multicolor bitmap with the **HUD baked in** (title text and
-camera map with the selected post highlighted), so switching cameras is one Sparkle bundle
-(`$6000` bitmap, `$4000` screen, `$d800` colour RAM, loaded straight to the destination).
+Each camera picture is converted to a multicolor bitmap with the camera title and map baked in
+(selected post highlighted), so switching cameras is one Sparkle bundle (`$6000` bitmap,
+`$4000` screen, `$d800` colour RAM, loaded straight to the destination). Every camera has one
+bundle **per picture** (31 in total, e.g. the stage has five: all three / no Bonnie / no Chica / only
+Freddy / empty); `WantFrame` in `src/game.asm` picks the picture from the animatronic positions, and when
+something moves in the room you are watching the feed breaks up and the new picture streams in.
 `REC` is a blinking sprite.
 
+The **live HUD** (power, usage bars, clock, night) is plotted at run time by `src/hud.asm`: the 64 uppercase
+glyphs are copied from the character ROM at start-up and written straight into the bitmaps – one cell per
+character in the hires office, two cells per character (pixel doubled) in the multicolor camera picture. The
+camera pictures contain empty black plates for it. Text cards ("12:00 AM – 1ST NIGHT", "5 AM", "6 AM",
+"GAME OVER") are drawn the same way with 2x2-cell glyphs into the camera buffer.
+
+### Game flow
+`mode` in `src/main.asm` is the top-level state; the frame IRQ runs the state machine, the game tick
+(`GameTick` → 10 Hz `GameDs`) and the effects. The main loop owns the loader: the IRQ asks it for bundle
+loads and text cards through `mjob` / `mbusy`.
+
+```
+title → static → night card (office assets load meanwhile) → office ⇄ monitor ⇄ camera switching
+   office/camera → power out → dark office → Freddy in the doorway (music box) → blackout → jumpscare
+   any animatronic → static → jumpscare frame 1 → static → frame 2 → GAME OVER → title
+   6 AM → "5 AM" → "6 AM" + chime → (newspaper after night 5, ending card after night 6) → title, next night
+```
+The 12 AM card is on screen while the office bundle is (re)loaded, which also resets the office picture,
+patches and sprites. The dark-office pictures for the power outage replace the office bitmap the same way.
+Bonnie and Freddy have no jumpscare art in `assets/`, so they are made from the existing pictures
+(`gen_jumpscares` in `tools/gen_assets.py`): the supply-closet close-up and the title-screen face, each plus a 2x zoom.
+
 ### Sound
-SID voice 1: fan rumble through the low-pass filter. Voice 2: 100 Hz light buzz / camera hiss.
-Voice 3: door servo + thump, monitor whoosh, camera blip, static bursts.
+SID voice 1: fan rumble through the low-pass filter. Voice 2: 100 Hz light buzz / camera hiss, and the
+melody player (6 AM chime, Freddy's music box). Voice 3: one-shot effects – door servo + thump, monitor
+whoosh, camera blip, static bursts, footsteps, Freddy's laugh, the doorway sting, the scream, power-down,
+pots and pans, groan, Foxy's knocks.
 
 ### Memory map
 ```
 $0160-$03ff Sparkle resident code + buffer
-$0400 office colours   $0800 sprites   $0c00 tables   $1000 code
-$2000 office bitmap    $4000 camera colours  $4800 sprites  $4c00 code  $6000 camera bitmap
-$8000 door/light patches  $ac00 code+tables
+$0400 office colours   $0800 sprites   $0c00 tables   $0d00 font copy   $0f00 game variables   $1000 code
+$2000 office bitmap    $4000 camera colours  $4400 tables/strings  $4800 sprites  $4c00 code  $6000 camera bitmap
+$8000 door/light patches (5 variants per side)  $b900 sound + tables
 $c000.. noise/bar screens (also under I/O), $c800 sprites, $e000 noise bitmap
 ```
 `tools/check_layout.py` runs on every build and fails if any of these overlap.
@@ -103,34 +170,47 @@ $c000.. noise/bar screens (also under I/O), $c800 sprites, $e000 noise bitmap
 ```
 assets/            the supplied Multipaint art (used as is)
 Sparkle3.3/        Sparkle distribution (unchanged; tools/sparkle is a copy of the Linux binary)
-src/               6510 source (KickAssembler): main.asm, defs.asm, sound.asm, test.asm
+src/               6510 source (KickAssembler): main.asm (IRQ, state machine, display), game.asm (AI, clock,
+                   power), hud.asm (text), sound.asm, defs.asm, test.asm
 tools/             asset pipeline (gen_assets.py, c64img.py, mksls.py), KickAss, sparkle, test runner
 build/             generated files (converted assets in build/gen, disk images)
 dist/fnaf64.d64    the game
 tests/             scripted emulator tests
 ```
 
-The build: `gen_assets.py` converts PNGs (hires office + patches, multicolor cameras with HUD,
-sprites, title with key legend) → KickAssembler builds 3 code segments → `mksls.py` writes the
-Sparkle script → `sparkle` builds the disk (~160 blocks of 664).
+The build: `gen_assets.py` converts PNGs (hires office + patches, dark offices, multicolor camera pictures,
+jumpscares, sprites, title with key legend) → KickAssembler builds 4 code segments → `mksls.py` writes the
+Sparkle script → `sparkle` builds the disk (~450 blocks of 664).
 
 ## Testing
 
 `./build.sh test` adds a small harness (`src/test.asm`): a frame-timed key script and snapshot
-hooks. `tools/runtest.py scenario.py [outdir]` builds that, runs VICE headless (monitor
-breakpoints take screenshots at chosen frames) and collects the PNGs; `tools/shotview.py` tiles them.
+hooks, and starts straight in the office. `tools/runtest.py scenario.py [outdir]` builds that, runs VICE
+headless (monitor breakpoints take screenshots at chosen frames) and collects the PNGs;
+`tools/shotview.py` tiles them. A scenario is a Python file with `STEPS = [(frame, "keys", "snapshot"), ...]`
+and optional `NIGHT`, `AI = (freddy, bonnie, chica, foxy)` (override the AI levels), `POS = (...)` (start
+positions), `POWER`, `DEFINES = ["FASTHOUR"]` (12 s hours) and `DUMP = "0f00 0f2f"` (memory dump per snapshot;
+`tools/aidump.py` prints the game variables from it).
 
 ```
 tests/run_all.sh [x64sc|x64]          # every scenario in tests/scenarios/ (NTSC=1 for NTSC)
 python3 tests/fuzz.py 3 2500          # random input, then checks the office bitmap in C64
                                       # memory equals what the door/light state requires
+python3 tools/runtest.py tests/scenarios/scen_ai_bonnie.py    # e.g. Bonnie walking to the door
 ```
-The suite was run on VICE `x64sc` and `x64`, PAL and NTSC.
+Scenarios that cover the new game: `scen_flow` (title → night card → office → camera), `scen_ai_*`
+(Bonnie, Foxy, Freddy), `scen_scare_bonnie` (jumpscare sequence), `scen_power` (power outage),
+`scen_win` (6 AM and the next night), `scen_doorway` (hall lights show Bonnie / Chica), `scen_gallery1-3`
+(every camera with different animatronic positions).
 
 ## Known limitations / next steps
 * Camera switch ≈ 1 s (1541 random access + decompression); more RAM would allow caching pictures.
-* No animatronics yet – all camera frames are already converted (`build/gen/cam_<cam>_<frame>.*`),
-  only frame 0 of each camera is on the disk for now.
+* Bonnie's and Freddy's jumpscares are improvised from existing art (no jumpscare pictures were supplied).
+* Not implemented: Golden Freddy, the 20/20/20/20 custom night, the phone calls, score / save (the reached night
+  is only kept while the machine is on), animatronic art *inside* the office besides Bonnie / Chica in the
+  hall-light windows.
+* Some details are simplified: Foxy's aggravation level, the exact camera-glitch timings, Freddy's stage-by-stage
+  power-out timings (approximated with random 5–20 s phases).
 * The row-IRQ timing (`ROW_DELAY` in `src/defs.asm`) is tuned for VICE; a real machine may show a
   one-line glitch at row boundaries during transitions if it is off by a few cycles.
 
@@ -144,3 +224,9 @@ and debugging as it went.
 The starting prompt, verbatim:
 
 > Help me port the famous game Five Nights at Freddie's to the all time retro computer, the Commodore 64! Implement only the basics of the game mechanics first. When started, the user should be able to open the camera, switch camera posts, flash the door lights and close doors. You can ignore animatronic movement yet, menus and the game's end (death or win in the morning) aren't important by now. If you need fastloading, I recommend to use Sparkle, it's well documented and worked very well in the past! It's downloaded in the Sparkle3.3 directory. Put a big effort in visual effects (camera screen up/down, camera noise, door open/close), and maybe sound effects and background noise, but sound is way less important, than visuals! If you are unsure, how the game works, look it up online! The assets folder contains PNGs created with Multipaint, an app used to draw C64 images, so they are already C64 (I think multicolor) compatible, you can freely use them. If you need any other assets, generate them, or search the web for them! Please test the app, if it has bugs or issues, try to debug it! There are lots of C64 coding tutorials and manuals online (for 6502 assembly, VIC-II, SID, CIA chips), if you don't know something, free feel to surf the net, or if you need additional software, you can install anything, you want!
+
+The second milestone (everything under "How to play": animatronic movement, clock, power, death / survival and
+the six nights) was again written by Claude (Sonnet 5.5) from this prompt, looking up the mechanics online first and
+testing every part in VICE:
+
+> The game is amazing! Please continue the developement by adding the main game mechanics! (Animatronic movement, clock, death/survival, etc.) Please look up the exact game mechanics on the fnaf wiki about animatronic movement, and try to follow them! It's not obligatory to create a 1:1 copy of the original game, but try to be as close as possible! After implementation, test the game, and if everything's up and running, commit to git!

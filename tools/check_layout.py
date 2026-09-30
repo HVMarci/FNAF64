@@ -13,6 +13,8 @@ persistent = [
     ("zero page vars", 0x0010, 0x0070),
     ("stack + Sparkle resident + loader buffer", 0x0100, 0x0400),
     ("RAM tables + sound vars", 0x0c00, 0x0d00),
+    ("font copy", 0x0d00, 0x0f00),
+    ("game variables", 0x0f00, 0x1000),
     ("noise screen 0", 0xc000, 0xc400),
     ("noise screen 1", 0xc400, 0xc800),
     ("dark bar screen", 0xcc00, 0xd000),
@@ -26,7 +28,7 @@ def prg(path):
     d = open(path, "rb").read()
     a = d[0] | d[1] << 8
     return a, a + len(d) - 2
-for c in ("code1.prg", "code2.prg", "code3.prg"):
+for c in ("code1.prg", "code2.prg", "code3.prg", "code4.prg"):
     a, e = prg(os.path.join(B, c))
     persistent.append((c, a, e))
 
@@ -38,9 +40,11 @@ for line in sls:
     if m: bundle = m.group(1)
     m = re.match(r'File:\t"([^"]+)"\t([0-9a-f]+)', line)
     if m:
+        if "dark" in bundle: continue        # replaces the office picture on purpose
         n = os.path.getsize(os.path.join(B, m.group(1)))
         a = int(m.group(2), 16)
-        (transient if ("camera" in bundle or "title" in bundle) else persistent).append((m.group(1), a, a + n))
+        tr = any(k in bundle for k in ("camera", "title", "jumpscare", "newspaper"))
+        (transient if tr else persistent).append((m.group(1), a, a + n))
 
 def overlap(x, y):
     return x[1] < y[2] and y[1] < x[2]

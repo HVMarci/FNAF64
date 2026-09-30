@@ -26,11 +26,12 @@
 
 .const PATCHES      = $8000
 .const REC_SZ       = 81
-.const SIDE_SZ      = 5508
+.const SIDE_SZ      = 7290
 .const P_N          = 0
 .const P_L          = 1782
 .const P_C          = 3564
 .const P_S          = 5346
+.const P_A          = 5508      // light on + Bonnie / Chica in the doorway
 
 // layers (row sources)
 .const LAY_OFFICE   = 0
@@ -49,6 +50,12 @@
 .const M_SWITCH     = 4
 .const M_TITLE      = 5
 .const M_START      = 6
+.const M_CARD       = 7         // night intro card, office assets load meanwhile
+.const M_POWER      = 8         // power outage sequence
+.const M_SCARE      = 9         // jumpscare
+.const M_OVER       = 10        // game over card
+.const M_WIN        = 11        // 5 AM -> 6 AM
+.const M_TOTITLE    = 12        // back to the title screen
 
 // door states
 .const DS_OPEN      = 0
@@ -156,5 +163,95 @@
 .label lamp_wait    = $66
 .label lamp_cur     = $67
 .const SFX_SERVO    = 4
+.const SFX_STEP     = 5
+.const SFX_LAUGH    = 6
+.const SFX_STING    = 7
+.const SFX_SCREAM   = 8
+.const SFX_POWER    = 9
+.const SFX_CLATTER  = 10
+.const SFX_GROAN    = 11
+.const SFX_KNOCK    = 12
+.const MEL_CHIME    = 1
+.const MEL_BOX      = 2
 .label zwin          = $69   // main temp: 0 door cells / 1 window cells
 .label wdrawn       = $6a   // 2 bytes: window variant drawn
+
+//------------------------------------------------------------------------------
+// Game state (RAM $0f00.., see src/game.asm). Font copy at $0d00 (64 glyphs).
+//------------------------------------------------------------------------------
+.const FONT         = $0d00
+.label gv           = $0f00
+.label g_night      = gv+0      // 1..6
+.label g_maxnight   = gv+1
+.label g_act        = gv+2      // 1 while the night clock and the animatronics run
+.label g_hour       = gv+3      // 0 (12 AM) .. 6
+.label g_hds        = gv+4      // 2 bytes: deciseconds left in this hour
+.label g_dsacc      = gv+6
+.label g_fps        = gv+7
+.label g_power      = gv+8      // percent
+.label g_pacc       = gv+9
+.label g_ppass      = gv+10
+.label g_usage      = gv+11
+.label ai_lvl       = gv+12     // 4: Freddy, Bonnie, Chica, Foxy
+.label ai_tm        = gv+16     // 4: deciseconds to the next movement opportunity
+.label ai_pos       = gv+20     // 4: camera index / 11 doorway / 12 office (Foxy: stage 0-3)
+.label fx_run       = gv+24
+.label fx_frz       = gv+25
+.label fx_hits      = gv+26
+.label fx_seen      = gv+27
+.label fr_tm        = gv+28
+.label g_pkill      = gv+29
+.label g_pull       = gv+30
+.label adoor        = gv+31     // 2: Bonnie / Chica stands in the doorway
+.label a_seen       = gv+33     // 2
+.label g_who        = gv+35
+.label sc_ph        = gv+36
+.label ps_stage     = gv+37
+.label ps_tm        = gv+38
+.label hud_dirty    = gv+39     // bit0 office, bit1 camera
+.label fwant        = gv+40
+.label fmark        = gv+41     // tie breaker for rooms with several animatronics
+.label mjob         = gv+42
+.label marg         = gv+43
+.label mbusy        = gv+44
+.label camdirty     = gv+45
+.label forcedown    = gv+46
+.label blank        = gv+47
+.label knock        = gv+48
+.label knock_tm     = gv+49
+.label kitchen_tm   = gv+50
+.label groan_tm     = gv+51
+.label hbuf         = gv+56     // 24 bytes: text buffer (screen codes, $ff terminated)
+.label hcol         = gv+80
+.label hval         = gv+81
+.label tbmp_hi      = gv+82
+.label tscr_hi      = gv+83
+.label mel_ptr      = gv+84     // 2
+.label mel_left     = gv+86
+.label mel_id       = gv+87
+.label mel_loop     = gv+88
+.label g_gt         = gv+90     // 8 bytes of temporaries for the game tick
+.label tt_left      = gv+100    // title night text drawn flag
+
+// main loop jobs
+.const J_LOAD       = 1
+.const J_CARD       = 2
+.const J_TITLETXT   = 3
+// card types
+.const CARD_NIGHT   = 0
+.const CARD_5AM     = 1
+.const CARD_6AM     = 2
+.const CARD_OVER    = 3
+.const CARD_END     = 4
+// dir indices of the non-camera bundles
+.const DI_OFFICE    = $0e
+.const DI_TITLE     = $0f
+.const DI_JS        = $40
+.const DI_DARK      = $48
+.const DI_DARKF     = $49
+.const DI_NEWS      = $4a
+#if FASTHOUR
+.const HOUR_DS      = 120       // test builds: 12 s hours
+#else
+.const HOUR_DS      = 892       // 89.2 s per in-game hour (real game)
+#endif

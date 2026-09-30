@@ -18,10 +18,12 @@ print("door states", dstate, "light", lwant, "mode", zp[0x17])
 bmp = open(os.path.join(ROOT, "build", "mem_bmp.bin"), "rb").read()[2:]
 scr = open(os.path.join(ROOT, "build", "mem_scr.bin"), "rb").read()[2:]
 normal, light, closed = g.office_state("normal"), g.office_state("dorelight"), g.office_state("door_2")
+anim = g.office_state("animatronics")
+lit = {0: normal, 1: light, 4: anim}
 eb, es = bytearray(normal[0]), bytearray(normal[1])
 for side, col0 in enumerate((2, 29)):
-    door = closed if dstate[side] == 2 else (light if lwant[side] else normal)
-    win = light if lwant[side] else normal
+    door = closed if dstate[side] == 2 else lit[lwant[side]]
+    win = lit[lwant[side]]
     # door cells: left cols 2-6, right cols 33-37; window cells: left 9-10, right 29-30
     cells = [(c, door) for c in ((2, 3, 4, 5, 6) if side == 0 else (33, 34, 35, 36, 37))] + \
             [(c, win) for c in ((9, 10) if side == 0 else (29, 30))]
@@ -30,6 +32,8 @@ for side, col0 in enumerate((2, 29)):
             eb[(r * 40 + cx) * 8:(r * 40 + cx) * 8 + 8] = src[0][(r * 40 + cx) * 8:(r * 40 + cx) * 8 + 8]
             es[r * 40 + cx] = src[1][r * 40 + cx]
 lamp = {r * 40 + c for r in range(5) for c in range(17, 23)}      # lamp flicker cells vary
-ok = bytes(bmp[:8000]) == bytes(eb) and all(scr[i] == es[i] for i in range(1000) if i not in lamp)
+hud = set(range(80))                                                    # rows 0-1: power / clock text
+ok = all(bytes(bmp[i * 8:i * 8 + 8]) == bytes(eb[i * 8:i * 8 + 8]) for i in range(1000) if i not in hud) and \
+     all(scr[i] == es[i] for i in range(1000) if i not in lamp and i not in hud)
 print("office buffer consistent:", ok)
 sys.exit(0 if ok else 1)

@@ -9,10 +9,12 @@
 
 .segmentdef Code1 [start=$1000, max=$1fff]
 .segmentdef Code2 [start=$4c00, max=$5fff]
-.segmentdef Code3 [start=$ac00, max=$bfff]
+.segmentdef Code3 [start=$b900, max=$bfff]
+.segmentdef Code4 [start=$4400, max=$47ff]
 .file [name="code1.prg", segments="Code1"]
 .file [name="code2.prg", segments="Code2"]
 .file [name="code3.prg", segments="Code3"]
+.file [name="code4.prg", segments="Code4"]
 
 //==============================================================================
 .segment Code1
@@ -46,6 +48,7 @@ Start:
         jsr Sparkle_LoadNext    // bundle 2: office bitmap, patches, sprites
 
         jsr InitState
+        jsr InitFont
         jsr InitNoise
         jsr InitSprites
         jsr SndInit
@@ -102,8 +105,18 @@ InitState:
         tax
 !:      sta $0c00,x             // clear the table / sound variable area
         sta $0d00,x
+        sta $0f00,x
         inx
         bne !-
+        lda Sparkle_NTSC_Check  // $dd PAL / $dc NTSC
+        ldx #50
+        cmp #$dd
+        beq !+
+        ldx #60
+!:      stx g_fps
+        lda #1
+        sta g_night
+        sta g_maxnight
         lda #$a5
         sta rng
         lda #$3c
@@ -114,16 +127,45 @@ InitState:
         lda #200
         sta band_wait
 #if SKIPTITLE
-        lda #M_OFFICE           // test builds start in the office
+        lda #TEST_NIGHT
+        sta g_night
+        sta g_maxnight
+        jsr NewNight            // test builds start in the office
+        lda #TEST_POWER
+        sta g_power
+        ldx #3                  // optional AI overrides (TEST_AI = 255: keep the night's level)
+!:      lda test_ai,x
+        cmp #$ff
+        beq !+
+        sta ai_lvl,x
+!:      lda test_pos,x
+        cmp #$ff
+        beq !+
+        sta ai_pos,x
+!:      dex
+        bpl !---
+        lda #3
+        sta hud_dirty
+        lda #1
+        sta g_act
+        lda #M_OFFICE
         sta mode
         lda #1
         sta sprmode
         lda #LAY_OFFICE
 #else
+#if TEST
+        lda #6                  // every night selectable in test builds
+        sta g_maxnight
+#endif
         lda #M_TITLE
         sta mode
         lda #0
         sta sprmode
+        lda #J_TITLETXT
+        sta mjob
+        lda #1
+        sta mbusy
         lda #LAY_TITLE
 #endif
         jsr SetAll
@@ -284,6 +326,7 @@ IrqTick:
         jsr TestOverride
 #endif
         jsr StateMachine
+        jsr GameTick
         jsr BuildTables
         jsr SpriteUpdate
         jsr ShakeUpdate
@@ -530,7 +573,12 @@ ev_nodigit:
 //==============================================================================
 StateMachine:
         jsr Events
-        jsr DoorLogic
+        lda forcedown           // Bonnie / Chica pull the monitor down
+        beq !+
+        lda ev
+        ora #EV_CAM
+        sta ev
+!:      jsr DoorLogic
         jsr LightLogic
         lda mode
         bne !+
@@ -550,7 +598,22 @@ StateMachine:
 !:      cmp #M_TITLE
         bne !+
         jmp sm_title
-!:      jmp sm_start
+!:      cmp #M_CARD
+        bne !+
+        jmp sm_card
+!:      cmp #M_POWER
+        bne !+
+        jmp sm_power
+!:      cmp #M_SCARE
+        bne !+
+        jmp sm_scare
+!:      cmp #M_OVER
+        bne !+
+        jmp sm_over
+!:      cmp #M_WIN
+        bne !+
+        jmp sm_win
+!:      jmp sm_totitle
 
 // ---- title screen ----
 sm_title:
@@ -558,10 +621,27 @@ sm_title:
         sta sprmode
         lda #LAY_TITLE
         jsr SetAll
+        lda evdigit             // 1..6 choose an unlocked night
+        beq st_nodig
+        cmp g_night
+        beq st_nodig
+        cmp #7
+        bcs st_nodig
+        cmp g_maxnight
+        beq st_dig
+        bcs st_nodig
+st_dig: sta g_night
+        lda #1
+        sta mbusy
+        lda #J_TITLETXT
+        sta mjob
+st_nodig:
         lda ev
         and #EV_CAM
         beq !+
-        lda #M_START
+        lda mbusy               // title text still being drawn
+        bne !+
+        lda #M_CARD
         sta mode
         lda #0
         sta tph
@@ -570,33 +650,63 @@ sm_title:
         jsr SndStart
 !:      rts
 
-// ---- title -> office: static burst, then the office dissolves in ----
-sm_start:
+// ---- night card: static, "12:00 AM / 1ST NIGHT" while the office assets load, dissolve into the office
+sm_card:
         lda #0
         sta sprmode
         lda tph
-        bne ts_p1
+        bne cd_p1
         lda #LAY_NOISE
         jsr SetAll
-        inc tcnt
+        lda tcnt
+        bne cd_0b
+        jsr NewNight
+        lda #CARD_NIGHT
+        jsr ReqCard
+cd_0b:  inc tcnt
         lda tcnt
         cmp #8
-        bcc ts_ret2
+        bcc cd_ret
+        lda mbusy
+        bne cd_ret
         lda #1
         sta tph
         lda #0
         sta tcnt
-ts_ret2: rts
-ts_p1:  lda #LAY_OFFICE
+        lda #DI_OFFICE
+        jmp ReqLoad
+cd_p1:  cmp #1
+        bne cd_p2
+        lda #LAY_TITLE
+        jsr SetAll
+        lda tcnt
+        cmp #150
+        bcs !+
+        inc tcnt
+!:      lda tcnt
+        cmp #150
+        bcc cd_ret
+        lda mbusy
+        bne cd_ret
+        lda #2
+        sta tph
+        lda #0
+        sta tcnt
+        lda #3
+        sta hud_dirty
+        lda #1                  // the night starts: clock, power and animatronics run
+        sta g_act
+        rts
+cd_p2:  lda #LAY_OFFICE
         sta revlay
         jsr RevealRows
         inc tcnt
         lda tcnt
         cmp #9
-        bcc ts_ret2
+        bcc cd_ret
         lda #M_OFFICE
         sta mode
-        rts
+cd_ret: rts
 
 // ---- office ----
 sm_office:
@@ -614,6 +724,24 @@ sm_office:
         sta tcnt
         lda #1
         sta can_load
+        inc fmark
+        jsr WantFrame
+        lda ai_pos+1            // Bonnie / Chica inside: they kill once the monitor is lowered
+        cmp #12
+        beq so_arm
+        lda ai_pos+2
+        cmp #12
+        bne so_flip
+so_arm: lda #1
+        sta g_pkill
+        jsr Random
+        and #$3f
+        clc
+        adc #30
+        sta g_pull
+        lda #0
+        sta groan_tm
+so_flip:
         lda #SFX_FLIP
         jsr SndStart
 !:      rts
@@ -629,7 +757,7 @@ sm_up:
         bcs up_next
         lda #LAY_NOISE
         ldy cam_loaded
-        cpy cam_cur
+        cpy fwant
         bne !+
         lda #LAY_CAM            // cached feed rises with the monitor
 !:      sta wlow
@@ -639,7 +767,7 @@ sm_up:
         rts
 up_next:
         lda cam_loaded
-        cmp cam_cur
+        cmp fwant
         bne !+
         jmp EnterCam
 !:      lda #1
@@ -660,7 +788,7 @@ up_p1:  cmp #1
         cmp #6
         bcc up_ret
         lda cam_loaded
-        cmp cam_cur
+        cmp fwant
         bne up_ret
         lda #2
         sta tph
@@ -703,6 +831,12 @@ sm_cam:
         lda #0
         sta tph
         sta tcnt
+        sta forcedown
+        jsr Random              // Foxy is frozen for 0.8 - 16.7 s after the monitor goes down
+        and #$7f
+        clc
+        adc #8
+        sta fx_frz
         lda #SFX_FLIP
         jsr SndStart
         lda #LAY_CAM
@@ -754,18 +888,22 @@ sc_set:
         cmp zt2
         beq sc_stay
         sta cam_cur
-        lda #M_SWITCH
-        sta mode
-        lda #0
-        sta tph
-        sta tcnt
-        lda #1
-        sta can_load
-        lda #SFX_STATIC
-        jsr SndStart
-        lda #LAY_NOISE
-        jmp SetAll
+        inc fmark
+        jsr WantFrame
+        jmp BeginSwitch
 sc_stay:
+        lda camdirty            // an animatronic moved: does this camera show something new?
+        beq sc_nodirty
+        lda #0
+        sta camdirty
+        lda fwant
+        pha
+        jsr WantFrame
+        pla
+        cmp fwant
+        beq sc_nodirty
+        jmp BeginSwitch
+sc_nodirty:
         lda flash
         beq sc_noflash
         dec flash
@@ -855,6 +993,19 @@ RandRow:                        // A = random row 0..24
         sbc #25
 !:      rts
 
+BeginSwitch:
+        lda #M_SWITCH
+        sta mode
+        lda #0
+        sta tph
+        sta tcnt
+        lda #1
+        sta can_load
+        lda #SFX_STATIC
+        jsr SndStart
+        lda #LAY_NOISE
+        jmp SetAll
+
 // ---- camera switch ----
 sm_switch:
         lda #0
@@ -884,7 +1035,7 @@ sw_p1:  cmp #1
         cmp #6
         bcc sw_ret
         lda cam_loaded
-        cmp cam_cur
+        cmp fwant
         bne sw_ret
         lda #2
         sta tph
@@ -917,7 +1068,447 @@ dn_done:
         lda #M_OFFICE
         sta mode
         lda #LAY_OFFICE
-        jmp SetAll
+        jsr SetAll
+        lda g_pkill             // Bonnie / Chica were waiting for this
+        beq dn_ret
+        lda ai_pos+1
+        cmp #12
+        beq dn_b
+        lda #2
+        jmp StartScare
+dn_b:   lda #1
+        jmp StartScare
+dn_ret: rts
+
+//------------------------------------------------------------------------------
+// Requests to the main loop (it owns the loader)
+//------------------------------------------------------------------------------
+ReqLoad:                        // A = directory index of the bundle
+        sta marg
+        lda #J_LOAD
+        bne rq_go
+ReqCard:                        // A = card type
+        sta marg
+        lda #J_CARD
+rq_go:  ldx #1
+        stx mbusy
+        sta mjob
+        rts
+
+// ---- power outage ----
+// stage 0 static + load dark office, 1 dissolve, 2 darkness (footsteps), 3 static + load Freddy,
+// 4 dissolve, 5 Freddy in the doorway (music box, flickering eyes), 6 blackout, then the scare
+sm_power:
+        lda #0
+        sta sprmode
+        lda ps_stage
+        bne pw_p1
+        lda #LAY_NOISE
+        jsr SetAll
+        lda tcnt
+        bne pw_0b
+        lda #DI_DARK
+        jsr ReqLoad
+pw_0b:  inc tcnt
+        lda tcnt
+        cmp #10
+        bcc pw_ret
+        lda mbusy
+        bne pw_ret
+        lda #1
+        sta ps_stage
+        lda #0
+        sta tcnt
+pw_ret: rts
+pw_p1:  cmp #1
+        bne pw_p2
+        lda #LAY_OFFICE
+        sta revlay
+        jsr RevealRows
+        inc tcnt
+        lda tcnt
+        cmp #9
+        bcc pw_ret
+        lda #2
+        sta ps_stage
+        jsr Random              // 1 - 14 s of darkness
+        and #$7f
+        clc
+        adc #10
+        sta ps_tm
+        rts
+pw_p2:  cmp #2
+        bne pw_p3
+        lda #LAY_OFFICE
+        jsr SetAll
+        jsr PowerSteps
+        lda ps_tm
+        bne pw_ret
+        lda #3
+        sta ps_stage
+        lda #0
+        sta tcnt
+        rts
+pw_p3:  cmp #3
+        bne pw_p4
+        lda #LAY_NOISE
+        jsr SetAll
+        lda tcnt
+        bne pw_3b
+        lda #DI_DARKF
+        jsr ReqLoad
+pw_3b:  inc tcnt
+        lda tcnt
+        cmp #8
+        bcc pw_ret
+        lda mbusy
+        bne pw_ret
+        lda #4
+        sta ps_stage
+        lda #0
+        sta tcnt
+        rts
+pw_r2:  rts
+pw_p4:  cmp #4
+        bne pw_p5
+        lda #LAY_OFFICE
+        sta revlay
+        jsr RevealRows
+        inc tcnt
+        lda tcnt
+        cmp #9
+        bcc pw_r2
+        lda #5
+        sta ps_stage
+        lda #MEL_BOX            // Freddy's music box
+        jsr MelStart
+        jmp PickTime
+pw_p5:  cmp #5
+        bne pw_p6
+        lda #LAY_OFFICE
+        jsr SetAll
+        jsr Random              // eyes flicker: the picture blinks out now and then
+        cmp #60
+        lda #0
+        bcs pw_5s
+        lda #1
+pw_5s:  sta blank
+        lda ps_tm
+        bne pw_r2
+        lda #6
+        sta ps_stage
+        lda #1
+        sta blank
+        lda #0
+        sta mel_id
+        jmp PickTime
+pw_p6:  lda #1
+        sta blank
+        jsr PowerSteps
+        lda ps_tm
+        bne pw_r2
+        lda #0
+        sta blank
+        jmp StartScare          // A = 0: Freddy
+
+PickTime:                       // 5, 10, 15 or 20 s
+        jsr Random
+        and #3
+        tax
+        lda ptime_tab,x
+        sta ps_tm
+        rts
+
+PowerSteps:
+        jsr Random
+        cmp #3
+        bcs !+
+        lda #SFX_STEP
+        jmp SndStart
+!:      rts
+
+// ---- jumpscare: static while frame 0 loads, shake it, static while frame 1 loads, shake it
+sm_scare:
+        lda #0
+        sta sprmode
+        lda sc_ph
+        bne sx_p1
+        lda #LAY_NOISE
+        jsr SetAll
+        lda tcnt
+        bne sx_0b
+        lda g_who
+        asl
+        clc
+        adc #DI_JS
+        jsr ReqLoad
+sx_0b:  inc tcnt
+        lda tcnt
+        cmp #4
+        bcc sx_ret
+        lda mbusy
+        bne sx_ret
+        lda #1
+        sta sc_ph
+        lda #0
+        sta tcnt
+sx_ret: rts
+sx_p1:  cmp #1
+        bne sx_p2
+        jsr ScareShow
+        inc tcnt
+        lda tcnt
+        cmp #40
+        bcc sx_ret
+        lda #2
+        sta sc_ph
+        lda #0
+        sta tcnt
+        rts
+sx_p2:  cmp #2
+        bne sx_p3
+        lda #LAY_NOISE
+        jsr SetAll
+        lda tcnt
+        bne sx_2b
+        lda g_who
+        asl
+        clc
+        adc #DI_JS+1
+        jsr ReqLoad
+sx_2b:  inc tcnt
+        lda tcnt
+        cmp #4
+        bcc sx_ret
+        lda mbusy
+        bne sx_ret
+        lda #3
+        sta sc_ph
+        lda #0
+        sta tcnt
+        rts
+sx_p3:  cmp #3
+        bne sx_p4
+        jsr ScareShow
+        inc tcnt
+        lda tcnt
+        cmp #60
+        bcc sx_ret
+        lda #4
+        sta sc_ph
+        lda #0
+        sta tcnt
+        rts
+sx_p4:  lda #LAY_NOISE
+        jsr SetAll
+        inc tcnt
+        lda tcnt
+        cmp #12
+        bcc sx_ret
+        lda #M_OVER
+        sta mode
+        lda #0
+        sta tph
+        sta tcnt
+        rts
+
+ScareShow:                      // picture with per-row jitter and static blips
+        ldx g_who
+        lda js_layer,x
+        jsr SetAll
+        ldx #24
+ss_lp:  jsr Random
+        and #7
+        sta rowxs,x
+        jsr Random
+        cmp #14
+        bcs ss_nx
+        lda #LAY_NOISE
+        sta rowlayer,x
+        lda #0
+        sta rowxs,x
+ss_nx:  dex
+        bpl ss_lp
+        rts
+
+// ---- game over card
+sm_over:
+        lda #0
+        sta sprmode
+        lda tph
+        bne ov_p1
+        lda #LAY_NOISE
+        jsr SetAll
+        lda tcnt
+        bne ov_0b
+        lda #CARD_OVER
+        jsr ReqCard
+ov_0b:  inc tcnt
+        lda tcnt
+        cmp #8
+        bcc ov_ret
+        lda mbusy
+        bne ov_ret
+        lda #1
+        sta tph
+        lda #0
+        sta tcnt
+ov_ret: rts
+ov_p1:  lda #LAY_TITLE
+        jsr SetAll
+        inc tcnt
+        lda tcnt
+        cmp #150
+        bcc ov_ret
+        jmp GoTitle
+
+// ---- 6 AM: "5 AM" -> "6 AM" (chime), on night 5 the newspaper, after night 6 the ending
+// tph: 0 static + 5 AM, 1 show, 2 static + 6 AM, 3 show, 4 static + newspaper, 5 show,
+//      6 static + ending card, 7 show
+sm_win:
+        lda #0
+        sta sprmode
+        lda tph
+        cmp #1
+        beq wn_show
+        cmp #3
+        beq wn_show
+        cmp #5
+        beq wn_show
+        cmp #7
+        beq wn_show
+        // static phases: load / draw the next card, then show it
+        lda #LAY_NOISE
+        jsr SetAll
+        lda tcnt
+        bne wn_sb
+        ldx tph
+        lda wn_kind,x
+        bmi wn_news
+        jsr ReqCard
+        jmp wn_sb
+wn_news:
+        lda #DI_NEWS
+        jsr ReqLoad
+wn_sb:  inc tcnt
+        lda tcnt
+        cmp #8
+        bcc wn_ret
+        lda mbusy
+        bne wn_ret
+        inc tph
+        lda #0
+        sta tcnt
+        lda tph
+        cmp #3
+        bne wn_ret
+        lda #MEL_CHIME          // the 6 AM card is up: ring the bell
+        jmp MelStart
+wn_ret: rts
+wn_show:
+        lda #LAY_TITLE
+        jsr SetAll
+        lda tcnt
+        cmp #250
+        bcs !+
+        inc tcnt
+!:      ldx tph
+        lda tcnt
+        cmp wn_time,x
+        bcc wn_ret
+        // this card is done: which one comes next?
+        lda tph
+        cmp #1
+        beq wn_next
+        cmp #3
+        beq wn_after6
+        jmp wn_finish           // newspaper or ending card done
+wn_next:
+        lda #2                  // 5 AM -> 6 AM card
+        sta tph
+        lda #0
+        sta tcnt
+        rts
+wn_after6:
+        lda g_night
+        cmp #5
+        bne wn_n5
+        lda #4                  // newspaper after night 5
+        sta tph
+        lda #0
+        sta tcnt
+        rts
+wn_n5:  cmp #6
+        bne wn_finish
+        lda #6                  // ending card after night 6
+        sta tph
+        lda #0
+        sta tcnt
+        rts
+wn_finish:
+        jsr AdvanceNight
+        jmp GoTitle
+
+AdvanceNight:
+        lda g_night
+        cmp #6
+        bne an_inc
+        lda #1
+        sta g_night
+        rts
+an_inc: inc g_night
+        lda g_night
+        cmp g_maxnight
+        bcc an_ret
+        beq an_ret
+        sta g_maxnight
+an_ret: rts
+
+// card / bundle kind per static phase: card type, or $80 = newspaper
+wn_kind:    .byte CARD_5AM, 0, CARD_6AM, 0, $80, 0, CARD_END, 0
+wn_time:    .byte 0, 70, 0, 220, 0, 200, 0, 250
+
+// ---- back to the title screen
+GoTitle:
+        lda #M_TOTITLE
+        sta mode
+        lda #0
+        sta tph
+        sta tcnt
+        rts
+
+sm_totitle:
+        lda #0
+        sta sprmode
+        lda tph
+        bne tt_p1
+        lda #LAY_NOISE
+        jsr SetAll
+        lda tcnt
+        bne tt_0b
+        lda #DI_TITLE
+        jsr ReqLoad
+tt_0b:  inc tcnt
+        lda tcnt
+        cmp #8
+        bcc tt_ret
+        lda mbusy
+        bne tt_ret
+        lda #1
+        sta tph
+        lda #0
+        sta tcnt
+tt_ret: rts
+tt_p1:  lda #LAY_TITLE
+        sta revlay
+        jsr RevealRows
+        inc tcnt
+        lda tcnt
+        cmp #9
+        bcc tt_ret
+        lda #M_TITLE
+        sta mode
+        rts
 
 //------------------------------------------------------------------------------
 // row layer helpers
@@ -1059,6 +1650,9 @@ DoorLogic:
 dl_lp:  lda ev
         and evdoor,x
         beq dl_anim
+        lda ai_pos+1,x          // Bonnie / Chica inside: the door is jammed
+        cmp #12
+        beq dl_anim
         lda dstate,x
         cmp #DS_CLOSING
         beq dl_open
@@ -1107,6 +1701,9 @@ LightLogic:
 ll_lp:  lda #0
         ldy mode
         bne ll_set              // only in the office
+        ldy ai_pos+1,x          // dead while the animatronic is inside
+        cpy #12
+        beq ll_set
         cpx #0
         bne ll_right
         lda ka_now
@@ -1134,10 +1731,30 @@ ll_nf:  jsr Random
         lda #2
         sta lflick,x
 ll_on:  lda #1
+        ldy adoor,x
+        beq ll_set
+        lda a_seen,x            // Bonnie / Chica stand in the light
+        bne ll_4
+        lda #1
+        sta a_seen,x
+        stx ztx
+        lda #SFX_STING
+        jsr SndStart
+        ldx ztx
+ll_4:   lda #4
 ll_set: sta lwant,x
-        dex
+        bne ll_nx
+        sta a_seen,x
+ll_nx:  dex
         bpl ll_lp
-        rts
+        lda lwant               // only one light at a time
+        beq ll_ret
+        lda lwant+1
+        beq ll_ret
+        lda #0
+        sta lwant+1
+        sta a_seen+1
+ll_ret: rts
 
 //------------------------------------------------------------------------------
 // Sprites (frame tick)
@@ -1211,7 +1828,10 @@ ShakeUpdate:
         rts
 su_norm:
         lda #$3b
-        sta $d011
+        ldx blank
+        beq !+
+        lda #$2b                // display off (power outage darkness)
+!:      sta $d011
         rts
 
 //------------------------------------------------------------------------------
@@ -1231,6 +1851,9 @@ LampDrawDim:
         rts
 
 LampUpdate:
+        lda mode
+        cmp #M_CARD
+        bcs lu_ret
         lda mode
         beq lu_office
         lda lamp_cur
@@ -1287,8 +1910,54 @@ mw:     lda frame
         jsr LightRender
         ldx #1
         jsr LightRender
+        jsr MainJobs
+        jsr HudRefresh
         jsr CamCheck
         jmp Main
+
+//------------------------------------------------------------------------------
+// Jobs requested by the frame tick (bundle loads and text cards)
+//------------------------------------------------------------------------------
+MainJobs:
+        lda mjob
+        beq mj_ret
+        ldx #0
+        stx mjob
+        cmp #J_LOAD
+        beq mj_load
+        cmp #J_CARD
+        beq mj_card
+        jsr DrawTitleTxt        // J_TITLETXT: "NIGHT n" on the title picture
+        jmp mj_done
+mj_card:
+        lda marg
+        jsr DrawCard
+        jmp mj_done
+mj_load:
+        lda marg
+        sta mt
+#if TEST
+        jsr LoadStartHook
+#endif
+        lda mt
+        jsr Sparkle_LoadA
+#if TEST
+        jsr LoadEndHook
+#endif
+        lda #$ff
+        sta cam_loaded          // the camera buffer no longer holds a camera picture
+        lda mt
+        cmp #DI_OFFICE
+        bne !+
+        lda #3
+        sta hud_dirty           // fresh office bitmap: HUD needs drawing
+!:      cmp #DI_TITLE
+        bne mj_done
+        jsr DrawTitleTxt
+mj_done:
+        lda #0
+        sta mbusy
+mj_ret: rts
 
 //------------------------------------------------------------------------------
 // Load requested camera image when the effects allow it
@@ -1296,7 +1965,7 @@ mw:     lda frame
 CamCheck:
         lda can_load
         beq cc_ret
-        lda cam_cur
+        lda fwant
         cmp cam_loaded
         beq cc_ret
         sta mt2
@@ -1304,13 +1973,18 @@ CamCheck:
 #if TEST
         jsr LoadStartHook
 #endif
-        lda camidx_tab,x
+        lda mt2
+        clc
+        adc #$10                // camera pictures start at directory index $10
         jsr Sparkle_LoadA
 #if TEST
         jsr LoadEndHook
 #endif
         lda mt2
         sta cam_loaded
+        lda hud_dirty
+        ora #2                  // the fresh picture has no HUD text yet
+        sta hud_dirty
 cc_ret: rts
 
 //------------------------------------------------------------------------------
@@ -1529,14 +2203,17 @@ lr_lp:  lda zrow
         jmp lr_lp
 lr_ret: rts
 
+.import source "game.asm"
+.import source "hud.asm"
+#if TEST
+.import source "test.asm"
+#endif
+
 //==============================================================================
 .segment Code3
 //==============================================================================
 .import source "sound.asm"
 
-#if TEST
-.import source "test.asm"
-#endif
 
 //------------------------------------------------------------------------------
 // Tables
@@ -1558,7 +2235,8 @@ ordtab:     .byte 7,19,2,14,23,5,11,17,0,21,9,3,15,24,6,12,20,1,10,18,4,13,22,8,
 
 rowline:    .fill 26, 50+8*i
 
-camidx_tab: .fill NUM_CAMS, $10+i
+js_layer:   .byte LAY_TITLE, LAY_CAM, LAY_TITLE, LAY_TITLE     // Freddy, Bonnie, Chica, Foxy
+ptime_tab:  .byte 50, 100, 150, 200
 grp_start:  .byte 0,3,5,6,8,9,10
 grp_len:    .byte 3,2,1,2,1,1,1
 evdoor:     .byte EV_LD, EV_RD
@@ -1578,8 +2256,8 @@ ptr_cam:    .byte SPR_PTR+8,SPR_PTR+8,SPR_PTR+8,SPR_PTR+8,SPR_PTR+8,SPR_PTR+8,SP
 // patch addressing
 sbase_lo:   .byte <PATCHES, <(PATCHES+SIDE_SZ)
 sbase_hi:   .byte >PATCHES, >(PATCHES+SIDE_SZ)
-voff_lo:    .byte <P_N, <P_L, <P_C, <P_S
-voff_hi:    .byte >P_N, >P_L, >P_C, >P_S
+voff_lo:    .byte <P_N, <P_L, <P_C, <P_S, <P_A
+voff_hi:    .byte >P_N, >P_L, >P_C, >P_S, >P_A
 // door / window sub-ranges of a record: part = side*2 + window
 //              L door  L win  R door  R win
 boff:       .byte 0,     56,    32,     0
