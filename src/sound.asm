@@ -163,6 +163,38 @@ st_vib: lda amb2_cur
 st_ret: rts
 
 //------------------------------------------------------------------------------
+// One "syllable" of the phone guy's mumble: a very short sawtooth blip at a random voice-like pitch
+// (skipped while another effect owns voice 3)
+//------------------------------------------------------------------------------
+SndBlip:
+        lda sfx_left
+        bne sb_ret
+        jsr Random
+        and #$0f
+        clc
+        adc #$0a
+        sta sfx_fh
+        sta $d40f
+        lda #0
+        sta sfx_fl
+        sta sfx_dl
+        sta sfx_dh
+        sta $d40e
+        lda #$21
+        sta sfx_wave
+        lda #$03
+        sta $d413
+        lda #$00
+        sta $d414
+        lda #3
+        sta sfx_left
+        lda #$20
+        sta $d412
+        lda #$21
+        sta $d412
+sb_ret: rts
+
+//------------------------------------------------------------------------------
 // Melodies on voice 2 (triangle "music box"): notes are (freq lo, freq hi, frames),
 // a zero length ends the tune (loops if mel_loop is set)
 //------------------------------------------------------------------------------
@@ -261,6 +293,7 @@ mel_lp:     .byte 0, 1
 .const N_A5 = $3a8b
 .const N_B5 = $41ba
 .const N_C6 = $45a6
+.segment Code4
 tune_chime:
         .byte <N_C6, >N_C6, 18
         .byte <N_G5, >N_G5, 18
@@ -295,8 +328,11 @@ tune_box:                       // a bouncy little march
         .byte <N_C5, >N_C5, 40
         .byte 0, 0, 0
 
+.segment Code3
+
 //------------------------------------------------------------------------------
 // effect table: freq lo/hi, delta lo/hi (16 bit signed per frame), wave, AD, SR, frames
+.segment Code4
 sfx_tab:
         // door slam: low noise thump sweeping down
         .word $1800, $ff40
@@ -338,6 +374,14 @@ sfx_tab:
         // 12 knock: door bang, shorter
         .word $1400, $ff60
         .byte $81, $08, $00, 10
+        // 13 phone ring burst (the frame tick alternates the pitch while it lasts)
+        .word $3400, $0000
+        .byte $41, $00, $c0, 26
+        // 14 receiver click
+        .word $5000, $fe00
+        .byte $81, $00, $00, 4
+
+.segment Code3
 
 //               off  buzz  hiss
 amb_wave:   .byte $40, $41, $80

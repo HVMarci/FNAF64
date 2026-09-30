@@ -63,6 +63,11 @@ for n, (fn, di) in enumerate((("dark", 0x48), ("darkfreddy", 0x49))):
     L.append("File:\t\"gen/%s.bmp\"\t2000" % fn)
     L.append("File:\t\"gen/%s.scr\"\t0400" % fn)
     L.append("")
+for n in range(1, 6):
+    L.append("<< phone call night %d >>" % n)
+    L.append("DirIndex:\t%02x" % (0x4f + n))
+    L.append("File:\t\"gen/phone_%d.bin\"\t4a40" % n)
+    L.append("")
 L.append("<< newspaper >>")
 L.append("DirIndex:\t4a")
 L.append("File:\t\"gen/news.bmp\"\t6000")

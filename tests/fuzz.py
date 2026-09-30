@@ -7,7 +7,7 @@ random.seed(seed)
 keys = ["A", "S", "K", "L", "A", "S", "K", "L", "SPACE", "1", "2", "4", "RIGHT", "LEFT", "A S", "K L", "S K"]
 steps = []
 f = 30
-while f < frames and len(steps) < 150:   # the script must fit in the spare RAM after the code
+while f < frames and len(steps) < 60:   # the script must fit in the spare RAM after the code
     k = random.choice(keys)
     hold = random.choice([1, 1, 2, 3, 8, 20, 40])
     steps.append((f, k, "")); steps.append((f + hold, "", ""))

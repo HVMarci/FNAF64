@@ -11,7 +11,7 @@ A snapshot named 'snapname' (or '' for none) is taken at that frame.
 import os, re, subprocess, sys, shutil
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-KA = {"A": 0x01, "S": 0x02, "K": 0x04, "L": 0x08, "SPACE": 0x10, "LEFT": 0x20, "RIGHT": 0x40}
+KA = {"A": 0x01, "S": 0x02, "K": 0x04, "L": 0x08, "SPACE": 0x10, "LEFT": 0x20, "RIGHT": 0x40, "M": 0x80}
 KB = {str(i): 1 << (i - 1) for i in range(1, 8)}
 KC = {"JL": 1, "JR": 2, "JF": 4, "JU": 8, "JD": 16}
 
@@ -46,6 +46,7 @@ def main():
     lines.append("  .word $ffff\n  .byte 0,0,0,0")
     lines.append(".label TEST_NIGHT = %d" % ns.get("NIGHT", 1))
     lines.append(".label TEST_POWER = %d" % ns.get("POWER", 100))
+    lines.append(".label TEST_PHONE = %d" % ns.get("PHONE", 0))
     for i, v in enumerate(ns.get("AI", (255, 255, 255, 255))):
         lines.append(".label TEST_AI%d = %d" % (i, v))
     for i, v in enumerate(ns.get("POS", (255, 255, 255, 255))):

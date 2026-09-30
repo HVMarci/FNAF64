@@ -11,6 +11,8 @@ movement rules of the original, jumpscares, power outages, and six nights.
 * **clock (12 AM – 6 AM), power and usage**, power outage sequence, **jumpscares**, game over,
   6 AM win screen, night 1–6 with the original AI level tables,
 * camera **static / noise / signal glitches**, door slide animation, screen shake, lamp flicker,
+* **Phone Guy**: an automatic call at the start of nights 1–5 – phone ring, subtitles and a synthesised
+  mumble instead of speech (`M` mutes it),
 * SID sound effects, background hum, Freddy's music box and the 6 AM chime,
 * a title screen (from `assets/lobby.png`) with night selection.
 
@@ -37,6 +39,7 @@ Autostart takes a few seconds; the title screen appears once the first files are
 | `1`–`6` on the title | pick a night you have already reached (nights unlock by surviving the previous one) |
 | `A` / `L` | toggle left / right **door** |
 | `S` / `K` | hold left / right **light** (only one at a time) |
+| `M` | mute the phone call |
 | `1`–`7` | camera post: `1` cycles 1A/1B/1C, `2` cycles 2A/2B, `4` cycles 4A/4B, `3`, `5`, `6` (kitchen, audio only), `7` |
 | `CRSR →` / `SHIFT+CRSR` | next / previous camera |
 | Joystick port 2 | fire = camera, left/right = doors (office) or prev/next camera, up/down = left/right light |
@@ -134,6 +137,18 @@ character in the hires office, two cells per character (pixel doubled) in the mu
 camera pictures contain empty black plates for it. Text cards ("12:00 AM – 1ST NIGHT", "5 AM", "6 AM",
 "GAME OVER") are drawn the same way with 2x2-cell glyphs into the camera buffer.
 
+### Phone Guy
+Digitised speech would need far too much disk space and CPU, so the call is **subtitles plus SID
+"mumbling"**: `tools/gen_assets.py` (`PHONE`) holds the text for nights 1–5 and writes one tiny file per night
+(≤ 448 bytes: subtitle lines and pauses). Each file is its own Sparkle bundle, loaded to `$4a40` while the
+night card is up. `src/phone.asm` does the rest from the frame tick: 3 s of quiet, three rings (pulse wave with
+a pitch warble), then one line at a time with a sawtooth blip at a random voice-like pitch every four frames and a
+hang-up click. The subtitle is **text row 24 shown as its own display layer** (`LAY_SUB`: bank 1, screen `$4400`,
+bitmap `$6000` – the last row of the camera bitmap buffer, which the main loop plots the characters into with the
+same ROM font as the HUD), so it appears over the office and over the camera picture without touching either.
+The call stops on death, power outage, morning or when muted. The dialogue is my own condensed wording in
+Phone Guy's style, not a transcript.
+
 ### Game flow
 `mode` in `src/main.asm` is the top-level state; the frame IRQ runs the state machine, the game tick
 (`GameTick` → 10 Hz `GameDs`) and the effects. The main loop owns the loader: the IRQ asks it for bundle
@@ -164,7 +179,8 @@ pots and pans, groan, Foxy's knocks.
 ```
 $0160-$03ff Sparkle resident code + buffer
 $0400 office colours   $0800 sprites   $0c00 tables   $0d00 font copy   $0f00 game variables   $1000 code
-$2000 office bitmap    $4000 camera colours  $4400 tables/strings  $4800 sprites  $4c00 code  $6000 camera bitmap
+$2000 office bitmap    $4000 camera colours  $4400 tables/strings ($47c0 subtitle colours)  $4800 sprites  $4a40 phone text
+$4c00 code  $6000 camera bitmap ($7e00 subtitle pixels)
 $8000 door/light patches (5 variants per side)  $b900 sound + tables
 $c000.. noise/bar screens (also under I/O), $c800 sprites, $e000 noise bitmap
 ```
@@ -211,7 +227,7 @@ Scenarios that cover the new game: `scen_flow` (title → night card → office 
 ## Known limitations / next steps
 * Camera switch ≈ 1 s (1541 random access + decompression); more RAM would allow caching pictures.
 * Bonnie's and Freddy's jumpscares are improvised from existing art (no jumpscare pictures were supplied).
-* Not implemented: Golden Freddy, the 20/20/20/20 custom night, the phone calls, score / save (the reached night
+* Not implemented: Golden Freddy, the 20/20/20/20 custom night, real speech for the phone calls, score / save (the reached night
   is only kept while the machine is on), animatronic art *inside* the office besides Bonnie / Chica in the
   hall-light windows.
 * Some details are simplified: Foxy's aggravation level, the exact camera-glitch timings, Freddy's stage-by-stage

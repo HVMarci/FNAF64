@@ -44,7 +44,7 @@ for line in sls:
         if "dark" in bundle: continue        # replaces the office picture on purpose
         n = os.path.getsize(os.path.join(B, m.group(1)))
         a = int(m.group(2), 16)
-        tr = any(k in bundle for k in ("camera", "title", "jumpscare", "newspaper"))
+        tr = any(k in bundle for k in ("camera", "title", "jumpscare", "newspaper", "phone"))
         (transient if tr else persistent).append((m.group(1), a, a + n))
 
 def overlap(x, y):

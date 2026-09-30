@@ -10,7 +10,7 @@
 .segmentdef Code1 [start=$1000, max=$1fff]
 .segmentdef Code2 [start=$4c00, max=$5fff]
 .segmentdef Code3 [start=$b900, max=$bfff]
-.segmentdef Code4 [start=$4400, max=$47ff]
+.segmentdef Code4 [start=$4400, max=$47bf]   // $47c0.. is the subtitle row screen RAM
 .file [name="code1.prg", segments="Code1"]
 .file [name="code2.prg", segments="Code2"]
 .file [name="code3.prg", segments="Code3"]
@@ -131,7 +131,14 @@ InitState:
         sta g_night
         sta g_maxnight
         jsr NewNight            // test builds start in the office
-        lda #TEST_POWER
+        lda #TEST_PHONE
+        beq !+
+        lda g_night
+        clc
+        adc #DI_PHONE
+        jsr ReqLoad
+        jsr PhoneStart
+!:        lda #TEST_POWER
         sta g_power
         ldx #3                  // optional AI overrides (TEST_AI = 255: keep the night's level)
 !:      lda test_ai,x
@@ -327,6 +334,8 @@ IrqTick:
 #endif
         jsr StateMachine
         jsr GameTick
+        jsr PhoneTick
+        jsr SubOverlay
         jsr BuildTables
         jsr SpriteUpdate
         jsr ShakeUpdate
@@ -401,7 +410,7 @@ ScanInput:
         sta kb_prev
         lda kc_now
         sta kc_prev
-        ldx #14
+        ldx #15
 si1:    lda kcol,x
         sta $dc00
         lda $dc01
@@ -447,7 +456,10 @@ si_s:   sta keyraw,x
 si_prev:
         ora #KA_PREV
 si_nocrsr:
-        sta ka_now
+        ldx keyraw+15           // M: mute the phone call
+        beq !+
+        ora #KA_MUTE
+!:      sta ka_now
         // --- digits 1..7 -> kb bits 0..6
         lda #0
         ldx #6
@@ -489,6 +501,11 @@ Events:
         and kc_now
         sta zt2                 // new kc
         lda zt
+        and #KA_MUTE
+        beq !+
+        lda #EV_MUTE
+        sta ev
+!:      lda zt
         and #KA_CAM
         beq !+
         lda #EV_CAM
@@ -661,6 +678,8 @@ sm_card:
         lda tcnt
         bne cd_0b
         jsr NewNight
+        lda #0
+        sta ph_loaded
         lda #CARD_NIGHT
         jsr ReqCard
 cd_0b:  inc tcnt
@@ -683,7 +702,22 @@ cd_p1:  cmp #1
         cmp #150
         bcs !+
         inc tcnt
-!:      lda tcnt
+!:      lda ph_loaded           // once the office is in, fetch tonight's call text
+        bne cd_pl
+        lda tcnt
+        cmp #8
+        bcc cd_ret
+        lda mbusy
+        bne cd_ret
+        lda #1
+        sta ph_loaded
+        lda g_night
+        cmp #6
+        bcs cd_pl
+        clc
+        adc #DI_PHONE
+        jmp ReqLoad
+cd_pl:  lda tcnt
         cmp #150
         bcc cd_ret
         lda mbusy
@@ -696,7 +730,7 @@ cd_p1:  cmp #1
         sta hud_dirty
         lda #1                  // the night starts: clock, power and animatronics run
         sta g_act
-        rts
+        jmp PhoneStart
 cd_p2:  lda #LAY_OFFICE
         sta revlay
         jsr RevealRows
@@ -1311,6 +1345,7 @@ sx_p4:  lda #LAY_NOISE
         sta tcnt
         rts
 
+.segment Code2
 ScareShow:                      // picture with per-row jitter and static blips
         ldx g_who
         lda js_layer,x
@@ -1360,6 +1395,8 @@ ov_p1:  lda #LAY_TITLE
         cmp #150
         bcc ov_ret
         jmp GoTitle
+
+.segment Code1
 
 // ---- 6 AM: "5 AM" -> "6 AM" (chime), on night 5 the newspaper, after night 6 the ending
 // tph: 0 static + 5 AM, 1 show, 2 static + 6 AM, 3 show, 4 static + newspaper, 5 show,
@@ -1940,6 +1977,7 @@ mw:     lda frame
         jsr LightRender
         jsr FanStep
         jsr RollStep
+        jsr SubDraw
         jsr MainJobs
         jsr HudRefresh
         jsr CamCheck
@@ -2078,6 +2116,9 @@ CamCheck:
         lda hud_dirty
         ora #2                  // the fresh picture has no HUD text yet
         sta hud_dirty
+        lda sub_on
+        beq cc_ret
+        sta sub_req             // ... and lost the subtitle row
 cc_ret: rts
 
 //------------------------------------------------------------------------------
@@ -2299,6 +2340,7 @@ lr_ret: rts
 
 .import source "game.asm"
 .import source "hud.asm"
+.import source "phone.asm"
 #if TEST
 .import source "test.asm"
 #endif
@@ -2312,9 +2354,9 @@ lr_ret: rts
 //------------------------------------------------------------------------------
 // Tables
 //------------------------------------------------------------------------------
-lay_d018:   .byte $18, $08, $08, $68, $78, $38, $08
-lay_dd02:   .byte $3c, $3d, $3f, $3f, $3f, $3f, $3d
-lay_d016:   .byte $08, $18, $08, $08, $08, $08, $08
+lay_d018:   .byte $18, $08, $08, $68, $78, $38, $08, $18
+lay_dd02:   .byte $3c, $3d, $3f, $3f, $3f, $3f, $3d, $3d
+lay_d016:   .byte $08, $18, $08, $08, $08, $08, $08, $08
 noise_d018: .byte $08, $18, $48, $58, $08, $18, $48, $58
 noise_slots:.byte $c0, $c4, $d0, $d4
 pairtab:    .byte $10, $1b, $b0, $c0, $1c, $fb, $cb, $f0
@@ -2349,8 +2391,8 @@ evdoor:     .byte EV_LD, EV_RD
 
 // key matrix: column select / row mask
 //             A    S    K    L   SPC   1    2    3    4    5    6    7   CRSR LSH  RSH
-kcol:       .byte $fd,$fd,$ef,$df,$7f,$7f,$7f,$fd,$fd,$fb,$fb,$f7,$fe,$fd,$bf
-krow:       .byte $04,$20,$20,$04,$10,$01,$08,$01,$08,$01,$08,$01,$04,$80,$10
+kcol:       .byte $fd,$fd,$ef,$df,$7f,$7f,$7f,$fd,$fd,$fb,$fb,$f7,$fe,$fd,$bf,$ef
+krow:       .byte $04,$20,$20,$04,$10,$01,$08,$01,$08,$01,$08,$01,$04,$80,$10,$10
 
 // sprites: 0 L door ring, 1 L light ring, 2 R door ring, 3 R light ring, 4-7 lit overlays
 spr_x:      .byte 90,90,255,255,90,90,255,255

@@ -457,17 +457,18 @@ def hires_text(idx, x, y, s, color, sx=2, sy=2):
 
 
 TITLE_KEYS = [
-    ("A DOOR   S LIGHT  LEFT", 176),
-    ("L DOOR   K LIGHT  RIGHT", 184),
-    ("SPACE CAMERA  1-7 CAMS", 192),
+    ("A DOOR   S LIGHT  LEFT", 170),
+    ("L DOOR   K LIGHT  RIGHT", 177),
+    ("SPACE CAMERA  1-7 CAMS", 184),
+    ("M MUTE PHONE CALL", 191),
 ]
 
 
 def gen_title():
     idx = load_indexed(os.path.join(ASSETS, "lobby.png"))
-    hires_plate(idx, 8, 172, 4 * 24, 26)
+    hires_plate(idx, 8, 168, 4 * 24, 32)
     for text, y in TITLE_KEYS:
-        hires_text(idx, 8, y - 2, text, 15, sx=1, sy=1)
+        hires_text(idx, 8, y, text, 15, sx=1, sy=1)
     b, s = hires_convert(idx)
     open(os.path.join(OUT, "title.bmp"), "wb").write(b)
     open(os.path.join(OUT, "title.scr"), "wb").write(s)
@@ -525,6 +526,84 @@ def gen_jumpscares():
     sheet.save(os.path.join(OUT, "prev_jumpscares.png"))
 
 
+# ------------------------------------------------------------- phone calls
+# One file per night (loaded at $4a40 when the night starts). Format: chunks of
+#   n (1..40) + n screen codes  = one subtitle line,   $80+k = silence for k * 0.4 s,   0 = end.
+PHONE = {
+    1: ["(PRESS M TO MUTE THE CALL)", "-",
+        "UH, HELLO? HELLO? OKAY, IT'S ON.",
+        "WELCOME TO FREDDY FAZBEAR'S PIZZA!",
+        "I'M CALLING TO SHOW YOU THE ROPES.",
+        "-",
+        "THE ANIMATRONICS GET A BIT ODD",
+        "WHEN THE PLACE GOES QUIET AT NIGHT.",
+        "THEY WANDER AROUND, SO CHECK THE",
+        "CAMERAS, AND USE THE HALL LIGHTS.",
+        "IF SOMEONE IS AT YOUR DOOR, SHUT IT.",
+        "-",
+        "BUT DOORS, LIGHTS AND CAMERAS ALL",
+        "USE POWER, SO DON'T WASTE IT.",
+        "OKAY, THAT'S IT. GOOD LUCK!"],
+    2: ["HELLO, HELLO! NIGHT TWO, NICE WORK.", "-",
+        "SEE THE CURTAIN AT PIRATE COVE?",
+        "FOXY LIVES BEHIND IT. HE HATES",
+        "BEING IGNORED, SO CHECK THE CAMERAS.",
+        "ANY CAMERA KEEPS HIM CALM A WHILE.",
+        "-",
+        "IF THE CURTAIN IS EMPTY, SHUT THE",
+        "LEFT DOOR, AND DO IT FAST!",
+        "GOOD LUCK. TALK TO YOU LATER."],
+    3: ["HELLO AGAIN! THIRD NIGHT ALREADY.", "-",
+        "I HEARD ROBOT LAUGHS FROM THE EAST",
+        "HALL LAST NIGHT. THAT'S FREDDY.",
+        "HE ONLY MOVES WHEN YOU AREN'T",
+        "LOOKING, AND NEVER WHEN YOU WATCH.",
+        "-",
+        "KEEP YOUR RIGHT DOOR SHUT WHEN YOU",
+        "LOOK AWAY FROM THE EAST CORNER.",
+        "BEST OF LUCK!"],
+    4: ["UH, HELLO. HOW ARE YOU HOLDING UP?", "-",
+        "IT GETS ROUGH FROM HERE. THEY ARE",
+        "FASTER NOW, AND THEY FIND THE",
+        "DOORS MUCH SOONER THAN BEFORE.",
+        "-",
+        "CHECK THE LIGHTS OFTEN AND STAY",
+        "SHARP. YOU'RE DOING GREAT!"],
+    5: ["HELLO! LAST BIG NIGHT, HANG IN THERE.", "-",
+        "WATCH YOUR POWER AND YOUR DOORS.",
+        "IF THE LIGHTS EVER GO OUT, LISTEN",
+        "FOR A LITTLE TUNE... AND HOPE.",
+        "-",
+        "GOOD LUCK, YOU'VE GOT THIS."],
+}
+SCREEN = {"'": 39, "(": 40, ")": 41, "*": 42, ",": 44, "-": 45, ".": 46, "!": 33, "?": 63, ":": 58, " ": 32}
+
+
+def screen_code(ch):
+    if ch in SCREEN:
+        return SCREEN[ch]
+    if "A" <= ch <= "Z":
+        return ord(ch) - 64
+    if "0" <= ch <= "9":
+        return ord(ch)
+    raise ValueError("phone text: unsupported character %r" % ch)
+
+
+def gen_phone():
+    for night, lines in PHONE.items():
+        out = bytearray()
+        for ln in lines:
+            if ln == "-":
+                out.append(0x80 + 2)             # a short pause
+                continue
+            assert len(ln) <= 40, ln
+            out.append(len(ln))
+            out += bytes(screen_code(c) for c in ln)
+        out.append(0)
+        assert len(out) <= 448, (night, len(out))     # $4a40-$4bff
+        open(os.path.join(OUT, "phone_%d.bin" % night), "wb").write(bytes(out))
+
+
 def gen_news():
     write_hires("news", load_indexed(os.path.join(ASSETS, "newspaper.png")))
 
@@ -533,6 +612,7 @@ if __name__ == "__main__":
     gen_frames_asm()
     gen_jumpscares()
     gen_news()
+    gen_phone()
     gen_title()
     normal = gen_office()
     gen_lamp(normal)

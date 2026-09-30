@@ -41,6 +41,7 @@
 .const LAY_BARG     = 4
 .const LAY_BARD     = 5
 .const LAY_TITLE    = 6
+.const LAY_SUB      = 7         // subtitle row: text row 24 from bank 1 (screen $4400, bitmap $6000)
 
 // modes
 .const M_OFFICE     = 0
@@ -71,6 +72,7 @@
 .const KA_CAM       = $10
 .const KA_PREV      = $20
 .const KA_NEXT      = $40
+.const KA_MUTE      = $80
 .const KC_JL        = $01
 .const KC_JR        = $02
 .const KC_JF        = $04
@@ -82,6 +84,7 @@
 .const EV_CAM       = $04
 .const EV_PREV      = $08
 .const EV_NEXT      = $10
+.const EV_MUTE      = $20
 
 .const NUM_CAMS     = 11
 
@@ -171,6 +174,8 @@
 .const SFX_CLATTER  = 10
 .const SFX_GROAN    = 11
 .const SFX_KNOCK    = 12
+.const SFX_RING     = 13
+.const SFX_CLICK    = 14
 .const MEL_CHIME    = 1
 .const MEL_BOX      = 2
 .label zwin          = $69   // main temp: 0 door cells / 1 window cells
@@ -237,6 +242,16 @@
 .label roll_off     = gv+102     // 5 AM -> 6 AM scroll offset (lines) requested by the frame tick
 .label roll_drawn   = gv+103
 .label roll_buf     = gv+112     // 64 bytes: two 16x32 strips (5 above 6)
+.label ph_st        = gv+180     // phone call: 0 idle, 1 waiting, 2 ringing, 3 talking
+.label ph_tm        = gv+181
+.label ph_rings     = gv+182
+.label sub_on       = gv+183     // subtitle row visible
+.label sub_req      = gv+184     // main loop: redraw the subtitle row
+.label sub_len      = gv+185
+.label ph_loaded    = gv+186
+.label sub_buf      = gv+192     // 40 screen codes + $ff
+.label ph_ptr       = $73        // zero page (2): position in the call text
+.label ph_src       = $75        // zero page (2)
 
 // main loop jobs
 .const J_LOAD       = 1
@@ -255,6 +270,8 @@
 .const DI_DARK      = $48
 .const DI_DARKF     = $49
 .const DI_NEWS      = $4a
+.const DI_PHONE     = $4f       // + night (1..5)
+.const PHONE_BUF    = $4a40     // the night's call text (loaded from disk)
 #if FASTHOUR
 .const HOUR_DS      = 120       // test builds: 12 s hours
 #else

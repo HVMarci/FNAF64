@@ -676,6 +676,7 @@ wf_done:
 //------------------------------------------------------------------------------
 NewNight:
         jsr MelStop
+        jsr PhoneStop
         lda #0
         ldx #$0d
 !:      sta dstate,x            // door / light state $30-$3d
@@ -755,6 +756,7 @@ nn_ret: rts
 StartScare:                     // A = who: 0 Freddy, 1 Bonnie, 2 Chica, 3 Foxy
         sta g_who
         jsr MelStop
+        jsr PhoneStop
         lda #0
         sta g_act
         sta can_load
@@ -770,6 +772,7 @@ StartScare:                     // A = who: 0 Freddy, 1 Bonnie, 2 Chica, 3 Foxy
         jmp SndStart
 
 StartPowerOut:
+        jsr PhoneStop
         lda #M_POWER
         sta mode
         lda #0
@@ -792,6 +795,7 @@ StartPowerOut:
         jmp SndStart
 
 WinNight:
+        jsr PhoneStop
         lda #0
         sta g_act
         sta can_load
