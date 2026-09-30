@@ -646,6 +646,9 @@ StateMachine:
 !:      cmp #M_WIN
         bne !+
         jmp sm_win
+!:      cmp #M_NEWS
+        bne !+
+        jmp sm_news
 !:      jmp sm_totitle
 
 // ---- title screen ----
@@ -674,8 +677,12 @@ st_nodig:
         beq !+
         lda mbusy               // title text still being drawn
         bne !+
-        lda #M_CARD
-        sta mode
+        ldx #M_CARD
+        lda g_night
+        cmp #1
+        bne st_go
+        ldx #M_NEWS             // the first night starts with the newspaper
+st_go:  stx mode
         lda #0
         sta tph
         sta tcnt
@@ -1411,6 +1418,48 @@ ov_p1:  lda #LAY_TITLE
         cmp #150
         bcc ov_ret
         jmp GoTitle
+
+// ---- newspaper before night 1: static while it loads, then it stays up for 5 s (SPACE skips it after 1.2 s)
+sm_news:
+        lda #0
+        sta sprmode
+        lda tph
+        bne nw_p1
+        lda #LAY_NOISE
+        jsr SetAll
+        lda tcnt
+        bne nw_0b
+        lda #DI_NEWS
+        jsr ReqLoad
+nw_0b:  inc tcnt
+        lda tcnt
+        cmp #8
+        bcc nw_ret
+        lda mbusy
+        bne nw_ret
+        lda #1
+        sta tph
+        lda #0
+        sta tcnt
+nw_ret: rts
+nw_p1:  lda #LAY_TITLE
+        jsr SetAll
+        lda tcnt
+        cmp #250
+        bcs nw_go
+        inc tcnt
+        cmp #60
+        bcc nw_ret
+        lda ev
+        and #EV_CAM
+        beq nw_ret
+nw_go:  lda #M_CARD
+        sta mode
+        lda #0
+        sta tph
+        sta tcnt
+        lda #SFX_STATIC
+        jmp SndStart
 
 .segment Code1
 

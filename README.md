@@ -14,7 +14,7 @@ movement rules of the original, jumpscares, power outages, and six nights.
 * **Phone Guy**: an automatic call at the start of nights 1–5 – phone ring, subtitles and a synthesised
   mumble instead of speech (`M` mutes it),
 * SID sound effects, background hum, Freddy's music box and the 6 AM chime,
-* a title screen (from `assets/lobby.png`) with night selection,
+* a title screen (from `assets/lobby.png`) with night selection, and the **newspaper** (`assets/newspaper.png`) before the first night as in the original (SPACE skips it),
 * **night 7, the 20/20/20/20 custom night** (unlocked by beating night 6) and a **pause** key (`P`),
 * **saving to disk**: the reached night is written to the `.d64` after every night you beat, so the next start offers it again.
 
@@ -171,7 +171,7 @@ from a blank save again. After night 6 (night 7 unlocked) the next start selects
 loads and text cards through `mjob` / `mbusy`.
 
 ```
-title → static → night card (office assets load meanwhile) → office ⇄ monitor ⇄ camera switching
+title → (night 1 only: static → newspaper "HELP WANTED", 5 s or SPACE) → static → night card (office assets load meanwhile) → office ⇄ monitor ⇄ camera switching
    office/camera → power out → dark office → Freddy in the doorway (music box) → blackout → jumpscare
    any animatronic → static → jumpscare frame 1 → static → frame 2 → GAME OVER → title
    6 AM → "5 AM" rolls up and the "6" rolls in from below + chime → (newspaper after night 5, ending card after night 6) → title, next night

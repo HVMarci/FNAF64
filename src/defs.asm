@@ -61,6 +61,7 @@
 .const M_OVER       = 10        // game over card
 .const M_WIN        = 11        // 5 AM -> 6 AM
 .const M_TOTITLE    = 12        // back to the title screen
+.const M_NEWS       = 13        // the newspaper before the first night
 
 // door states
 .const DS_OPEN      = 0
