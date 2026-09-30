@@ -116,7 +116,8 @@ row-by-row sweep of the closed patch over the open one with a hazard-stripe edge
 the sweep; opening runs it backwards; lights swap a patch variant. The main loop does the
 copying (`DoorStep`, `LightRender`), the frame IRQ only advances the logic.
 Door and window are separate cell ranges of each patch: the door follows the door state, the window follows the light alone, so a lit window shows through even with the door shut. Buttons are sprites (ring + lit overlay). Extras: door-slam **screen shake** (`$d011` scroll),
-flickering ceiling lamp (colour cells), light flicker.
+a flashing ceiling lamp (three brightness levels, colour cells) and a **spinning desk fan** (four prepared frames of
+sweeping dithered blades, redrawn every third frame by `FanStep`), light flicker.
 
 ### Cameras and the HUD
 Each camera picture is converted to a multicolor bitmap with the camera title and map baked in

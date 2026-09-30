@@ -32,8 +32,11 @@ for side, col0 in enumerate((2, 29)):
             eb[(r * 40 + cx) * 8:(r * 40 + cx) * 8 + 8] = src[0][(r * 40 + cx) * 8:(r * 40 + cx) * 8 + 8]
             es[r * 40 + cx] = src[1][r * 40 + cx]
 lamp = {r * 40 + c for r in range(5) for c in range(17, 23)}      # lamp flicker cells vary
-hud = set(range(80))                                                    # rows 0-1: power / clock text
+hud = set(range(80)) | {r * 40 + c for r in range(11, 16) for c in range(19, 24)}      # + the animated fan                                                    # rows 0-1: power / clock text
 ok = all(bytes(bmp[i * 8:i * 8 + 8]) == bytes(eb[i * 8:i * 8 + 8]) for i in range(1000) if i not in hud) and \
      all(scr[i] == es[i] for i in range(1000) if i not in lamp and i not in hud)
 print("office buffer consistent:", ok)
+if not ok:
+    badc = [(i // 40, i % 40) for i in range(1000) if i not in hud and (bytes(bmp[i * 8:i * 8 + 8]) != bytes(eb[i * 8:i * 8 + 8]) or (i not in lamp and scr[i] != es[i]))]
+    print("differing cells (row, col):", badc[:40], len(badc))
 sys.exit(0 if ok else 1)

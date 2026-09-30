@@ -33,6 +33,8 @@ L.append("DirIndex:\t0e")
 L.append("File:\t\"gen/office.bmp\"\t2000")
 L.append("File:\t\"gen/office.scr\"\t0400")
 L.append("File:\t\"gen/patches.bin\"\t8000")
+L.append("File:\t\"gen/fan_a.bin\"\tbe40")
+L.append("File:\t\"gen/fan_b.bin\"\t0a40")
 for a in ("0800", "4800", "c800"):
     L.append("File:\t\"gen/sprites.bin\"\t%s" % a)
 L.append("")

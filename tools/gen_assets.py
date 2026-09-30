@@ -355,16 +355,84 @@ def preview_office(normal, imgs):
 
 
 def gen_lamp(normal):
-    """Colour cells (screen RAM bytes) of the ceiling lamp: normal + dimmed variant."""
-    dim = {1: 10, 10: 2}
-    n = bytearray()
-    m = bytearray()
-    for r in range(5):
-        for c in range(17, 23):
-            v = normal[1][r * 40 + c]
-            n.append(v)
-            m.append((dim.get(v >> 4, v >> 4) << 4) | dim.get(v & 15, v & 15))
-    open(os.path.join(OUT, "lamp.bin"), "wb").write(bytes(n + m))
+    """Colour cells (screen RAM bytes) of the ceiling lamp: normal, dimmed and nearly dark variants."""
+    maps = [{}, {1: 10, 10: 2}, {1: 2, 10: 9, 2: 9}]
+    out = bytearray()
+    for m in maps:
+        for r in range(5):
+            for c in range(17, 23):
+                v = normal[1][r * 40 + c]
+                out.append((m.get(v >> 4, v >> 4) << 4) | m.get(v & 15, v & 15))
+    open(os.path.join(OUT, "lamp.bin"), "wb").write(bytes(out))
+
+
+# ------------------------------------------------------------------- fan
+# The desk fan is redrawn every few frames: dithered blade wedges (3 blades, 4 steps of 30 degrees)
+# sweep across the dark part of the grille. Only cells inside the circle change (5 row segments).
+FAN_CX, FAN_CY, FAN_R0, FAN_R1 = 172.5, 107.0, 4.5, 14.5
+FAN_ROWS = [(20, 3), (19, 5), (19, 5), (19, 5), (20, 3)]      # (first column, cells) for rows 11..15
+FAN_ROW0 = 11
+
+
+def fan_frames(normal):
+    import math
+    bmp, scr = normal
+    frames = []
+    for k in range(4):
+        phase = k * 30.0
+        data = bytearray()
+        scrs = bytearray()
+        for ri, (c0, n) in enumerate(FAN_ROWS):
+            r = FAN_ROW0 + ri
+            bm = bytearray()
+            sc = bytearray()
+            for c in range(c0, c0 + n):
+                s0 = scr[r * 40 + c]
+                px = []
+                for y in range(8):
+                    b = bmp[(r * 40 + c) * 8 + y]
+                    px.append([(s0 >> 4) if b & (0x80 >> x) else (s0 & 15) for x in range(8)])
+                cols = set(v for row in px for v in row)
+                other = sorted(cols - {0})
+                blade = 11 if not other else (other[0] if len(other) == 1 else None)
+                for y in range(8):
+                    for x in range(8):
+                        ax, ay = c * 8 + x + 0.5, r * 8 + y + 0.5
+                        dx, dy = ax - FAN_CX, ay - FAN_CY
+                        d = math.hypot(dx, dy)
+                        if blade is not None and FAN_R0 < d < FAN_R1 - 1 and (x + y) % 2 == 0:
+                            ang = (math.degrees(math.atan2(dy, dx)) - phase) % 120.0
+                            if ang < 55:
+                                px[y][x] = blade if px[y][x] == 0 else 0
+                cols = sorted(set(v for row in px for v in row))
+                assert len(cols) <= 2
+                bg, fg = (cols[0], cols[1]) if len(cols) == 2 else (cols[0], cols[0])
+                sc.append((fg << 4) | bg)
+                for y in range(8):
+                    v = 0
+                    for x in range(8):
+                        if fg != bg and px[y][x] == fg:
+                            v |= 0x80 >> x
+                    bm.append(v)
+            data += bm
+            scrs += sc
+        # per row: bitmap bytes then screen bytes, interleaved by row segment
+        rec = bytearray()
+        o8 = o1 = 0
+        for (c0, n) in FAN_ROWS:
+            rec += data[o8:o8 + 8 * n]
+            rec += scrs[o1:o1 + n]
+            o8 += 8 * n
+            o1 += n
+        frames.append(bytes(rec))
+    return frames
+
+
+def gen_fan(normal):
+    fr = fan_frames(normal)
+    assert len(fr[0]) == 189 and all(len(f) == 189 for f in fr)
+    open(os.path.join(OUT, "fan_a.bin"), "wb").write(fr[0] + fr[1])     # -> $be40 (Code3 spare area)
+    open(os.path.join(OUT, "fan_b.bin"), "wb").write(fr[2] + fr[3])     # -> $0a40
 
 
 def hires_plate(idx, x, y, w, h):
@@ -468,6 +536,7 @@ if __name__ == "__main__":
     gen_title()
     normal = gen_office()
     gen_lamp(normal)
+    gen_fan(normal)
     imgs = gen_sprites()
     files = gen_cams()
     preview_office(normal, imgs)

@@ -34,7 +34,8 @@ for c in ("code1.prg", "code2.prg", "code3.prg", "code4.prg"):
 
 transient = []          # (bundle, name, start, end)
 bundle = "?"
-sls = open(os.path.join(B, [f for f in os.listdir(B) if f.endswith(".sls")][0])).read().splitlines()
+sls_files = sorted((os.path.join(B, f) for f in os.listdir(B) if f.endswith(".sls")), key=os.path.getmtime)
+sls = open(sls_files[-1]).read().splitlines()
 for line in sls:
     m = re.match(r"<< (.*) >>", line)
     if m: bundle = m.group(1)

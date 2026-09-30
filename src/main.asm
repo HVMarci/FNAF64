@@ -1849,6 +1849,9 @@ LampDrawNorm:
 LampDrawDim:
         :LampCopy(lamp_data + 30)
         rts
+LampDrawDark:
+        :LampCopy(lamp_data + 60)
+        rts
 
 LampUpdate:
         lda mode
@@ -1875,21 +1878,26 @@ lu_idle:
         lda #0
         jmp lu_apply
 lu_start:
-        lda #8
+        lda #16
         sta lamp_cnt
         jsr Random
-        and #$7f
+        and #$3f
         clc
-        adc #90
+        adc #40
         sta lamp_wait
         lda #0
 lu_apply:
         cmp lamp_cur
         beq lu_ret
         sta lamp_cur
+        tax
         bne lu_dim
         jmp LampDrawNorm
-lu_dim: jmp LampDrawDim
+lu_dim: cmp #1
+        bne lu_dark
+        jmp LampDrawDim
+lu_dark:
+        jmp LampDrawDark
 lu_ret: rts
 
 //==============================================================================
@@ -1910,6 +1918,7 @@ mw:     lda frame
         jsr LightRender
         ldx #1
         jsr LightRender
+        jsr FanStep
         jsr MainJobs
         jsr HudRefresh
         jsr CamCheck
@@ -1958,6 +1967,69 @@ mj_done:
         lda #0
         sta mbusy
 mj_ret: rts
+
+//------------------------------------------------------------------------------
+// Desk fan: redraw its 21 cells from one of four prepared frames every third frame
+// (frame data: per row segment the bitmap bytes followed by the screen bytes)
+//------------------------------------------------------------------------------
+FanStep:
+        lda mode
+        beq fs_go
+        cmp #M_UP
+        beq fs_go
+        cmp #M_DOWN
+        bne fs_ret
+fs_go:  dec fan_tm
+        bpl fs_ret
+        lda #2
+        sta fan_tm
+        lda fan_i
+        clc
+        adc #1
+        and #3
+        sta fan_i
+        tax
+        lda fan_lo,x
+        sta zsrc
+        lda fan_hi,x
+        sta zsrc+1
+        ldx #0
+fs_row: lda fan_bl,x
+        sta zdb
+        lda fan_bh,x
+        sta zdb+1
+        lda fan_sl,x
+        sta zds
+        lda fan_sh,x
+        sta zds+1
+        ldy fan_n8,x
+        dey
+!:      lda (zsrc),y
+        sta (zdb),y
+        dey
+        bpl !-
+        clc
+        lda zsrc
+        adc fan_n8,x
+        sta zsrc
+        bcc !+
+        inc zsrc+1
+!:      ldy fan_n1,x
+        dey
+!:      lda (zsrc),y
+        sta (zds),y
+        dey
+        bpl !-
+        clc
+        lda zsrc
+        adc fan_n1,x
+        sta zsrc
+        bcc !+
+        inc zsrc+1
+!:      inx
+        cpx #5
+        bne fs_row
+fs_ret: rts
 
 //------------------------------------------------------------------------------
 // Load requested camera image when the effects allow it
@@ -2185,7 +2257,8 @@ lr_door:
         // The rows below the door edge ("open" rows) always follow the light, also while
         // the door is moving: redraw them when the light changes. Rows above the edge
         // show the closed door and the strip rows are light independent.
-        lda lwant,x
+        // (lvar is a snapshot: the IRQ may change lwant between two reads)
+        lda lvar,x
         cmp ldrawn,x
         beq lr_ret
         sta ldrawn,x
@@ -2229,11 +2302,23 @@ pairtab:    .byte $10, $1b, $b0, $c0, $1c, $fb, $cb, $f0
 wipe_up:    .byte 24,22,20,17,14,11,9,7,5,3,2,1,0
 wipe_dn:    .byte 0,1,2,3,5,7,9,11,14,17,20,22,24,26
 shake_tab:  .byte $3b,$3b,$3b,$3c,$3a,$3c,$39,$3d
-lamp_pat:   .byte 0,0,1,0,1,1,0,1
+lamp_pat:   .byte 0,2,1,0,2,2,0,1,2,0,2,1,0,2,1,2
 lamp_data:  .import binary "../build/gen/lamp.bin"
 ordtab:     .byte 7,19,2,14,23,5,11,17,0,21,9,3,15,24,6,12,20,1,10,18,4,13,22,8,16
 
 rowline:    .fill 26, 50+8*i
+
+// fan frames: 189 bytes each, two at $be40 and two at $0a40 (see tools/gen_assets.py)
+.var fan_col = List().add(20, 19, 19, 19, 20)
+.var fan_cnt = List().add(3, 5, 5, 5, 3)
+fan_lo:     .byte <$be40, <($be40+189), <$0a40, <($0a40+189)
+fan_hi:     .byte >$be40, >($be40+189), >$0a40, >($0a40+189)
+fan_bl:     .fill 5, <(OFF_BMP + (11+i)*320 + fan_col.get(i)*8)
+fan_bh:     .fill 5, >(OFF_BMP + (11+i)*320 + fan_col.get(i)*8)
+fan_sl:     .fill 5, <(OFF_SCR + (11+i)*40 + fan_col.get(i))
+fan_sh:     .fill 5, >(OFF_SCR + (11+i)*40 + fan_col.get(i))
+fan_n8:     .fill 5, fan_cnt.get(i)*8
+fan_n1:     .fill 5, fan_cnt.get(i)
 
 js_layer:   .byte LAY_TITLE, LAY_CAM, LAY_TITLE, LAY_TITLE     // Freddy, Bonnie, Chica, Foxy
 ptime_tab:  .byte 50, 100, 150, 200

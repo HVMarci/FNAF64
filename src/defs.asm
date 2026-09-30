@@ -231,7 +231,8 @@
 .label mel_id       = gv+87
 .label mel_loop     = gv+88
 .label g_gt         = gv+90     // 8 bytes of temporaries for the game tick
-.label tt_left      = gv+100    // title night text drawn flag
+.label fan_tm       = gv+100
+.label fan_i        = gv+101
 
 // main loop jobs
 .const J_LOAD       = 1
