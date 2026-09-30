@@ -1199,8 +1199,7 @@ pw_5s:  sta blank
         sta ps_stage
         lda #1
         sta blank
-        lda #0
-        sta mel_id
+        jsr MelStop
         jmp PickTime
 pw_p6:  lda #1
         sta blank
@@ -1369,6 +1368,8 @@ sm_win:
         lda #0
         sta sprmode
         lda tph
+        cmp #8
+        beq wn_roll
         cmp #1
         beq wn_show
         cmp #3
@@ -1399,12 +1400,25 @@ wn_sb:  inc tcnt
         inc tph
         lda #0
         sta tcnt
-        lda tph
-        cmp #3
-        bne wn_ret
-        lda #MEL_CHIME          // the 6 AM card is up: ring the bell
-        jmp MelStart
 wn_ret: rts
+wn_roll:
+        lda #LAY_TITLE
+        jsr SetAll
+        lda tcnt
+        lsr
+        tax
+        lda roll_tab,x
+        sta roll_off
+        inc tcnt
+        lda tcnt
+        cmp #40
+        bcc wn_ret
+        lda #3                  // the 6 is in place: ring the bell
+        sta tph
+        lda #0
+        sta tcnt
+        lda #MEL_CHIME
+        jmp MelStart
 wn_show:
         lda #LAY_TITLE
         jsr SetAll
@@ -1424,11 +1438,12 @@ wn_show:
         beq wn_after6
         jmp wn_finish           // newspaper or ending card done
 wn_next:
-        lda #2                  // 5 AM -> 6 AM card
+        lda #8                  // the 5 rolls up and out, the 6 rolls in
         sta tph
         lda #0
         sta tcnt
-        rts
+        lda #SFX_FLIP
+        jmp SndStart
 wn_after6:
         lda g_night
         cmp #5
@@ -1464,12 +1479,17 @@ an_inc: inc g_night
         sta g_maxnight
 an_ret: rts
 
+.segment Code4
 // card / bundle kind per static phase: card type, or $80 = newspaper
-wn_kind:    .byte CARD_5AM, 0, CARD_6AM, 0, $80, 0, CARD_END, 0
+wn_kind:    .byte CARD_5AM, 0, 0, 0, $80, 0, CARD_END, 0
+roll_tab:   .byte 0,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,16,16
 wn_time:    .byte 0, 70, 0, 220, 0, 200, 0, 250
+
+.segment Code1
 
 // ---- back to the title screen
 GoTitle:
+        jsr MelStop
         lda #M_TOTITLE
         sta mode
         lda #0
@@ -1919,6 +1939,7 @@ mw:     lda frame
         ldx #1
         jsr LightRender
         jsr FanStep
+        jsr RollStep
         jsr MainJobs
         jsr HudRefresh
         jsr CamCheck

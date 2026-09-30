@@ -675,6 +675,7 @@ wf_done:
 // Night set-up (before the office assets are reloaded)
 //------------------------------------------------------------------------------
 NewNight:
+        jsr MelStop
         lda #0
         ldx #$0d
 !:      sta dstate,x            // door / light state $30-$3d
@@ -705,7 +706,6 @@ NewNight:
         sta g_ppass
         sta camdirty
         sta fmark
-        sta mel_id
         sta cam_cur
         sta can_load
         sta ai_pos              // everybody starts on the stage / in the cove
@@ -754,11 +754,11 @@ nn_ret: rts
 //------------------------------------------------------------------------------
 StartScare:                     // A = who: 0 Freddy, 1 Bonnie, 2 Chica, 3 Foxy
         sta g_who
+        jsr MelStop
         lda #0
         sta g_act
         sta can_load
         sta blank
-        sta mel_id
         sta sc_ph
         sta tcnt
         sta tph

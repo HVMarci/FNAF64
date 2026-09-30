@@ -175,6 +175,8 @@ MelStart:                       // A = MEL_*
         sta mel_ptr+1
         lda mel_lp-1,x
         sta mel_loop
+        lda mel_wv-1,x
+        sta mel_wave
         lda #0
         sta mel_left
         lda #$fe
@@ -186,7 +188,8 @@ MelTick:
         beq mt_next
         dec mel_left
         bne mt_ret
-        lda #$10                // gate off between notes
+        lda mel_wave            // gate off between notes
+        and #$fe
         sta $d40b
         rts
 mt_next:
@@ -202,11 +205,7 @@ mt_next:
         sta mel_ptr+1
         rts
 mt_stop:
-        lda #0
-        sta mel_id
-        lda #$10
-        sta $d40b
-        rts
+        jmp MelStop
 mt_note:
         sta mel_left
         ldy #0
@@ -215,13 +214,15 @@ mt_note:
         iny
         lda (mel_ptr),y
         sta $d408
-        lda #$05
+        ldx mel_id
+        lda mel_ad-1,x
         sta $d40c
-        lda #$a6
+        lda mel_sr-1,x
         sta $d40d
-        lda #$10
+        lda mel_wave
+        and #$fe
         sta $d40b
-        lda #$11
+        lda mel_wave
         sta $d40b
         clc
         lda mel_ptr
@@ -231,6 +232,19 @@ mt_note:
         inc mel_ptr+1
 mt_ret: rts
 
+MelStop:
+        lda #0
+        sta mel_id
+        lda #$fe                // ambient voice is re-initialised on the next tick
+        sta amb2_cur
+        lda #$10
+        sta $d40b
+        rts
+
+// per tune: waveform (gate bit set), attack / decay, sustain / release -> plucked bell and music box
+mel_wv:     .byte $41, $11
+mel_ad:     .byte $0a, $07
+mel_sr:     .byte $08, $06
 mel_lo:     .byte <tune_chime, <tune_box
 mel_hi:     .byte >tune_chime, >tune_box
 mel_lp:     .byte 0, 1
@@ -248,14 +262,14 @@ mel_lp:     .byte 0, 1
 .const N_B5 = $41ba
 .const N_C6 = $45a6
 tune_chime:
-        .byte <N_C6, >N_C6, 26
-        .byte <N_G5, >N_G5, 26
-        .byte <N_E5, >N_E5, 26
+        .byte <N_C6, >N_C6, 18
+        .byte <N_G5, >N_G5, 18
+        .byte <N_E5, >N_E5, 18
+        .byte <N_C5, >N_C5, 50
+        .byte <N_C6, >N_C6, 18
+        .byte <N_G5, >N_G5, 18
+        .byte <N_E5, >N_E5, 18
         .byte <N_C5, >N_C5, 60
-        .byte <N_C6, >N_C6, 26
-        .byte <N_G5, >N_G5, 26
-        .byte <N_E5, >N_E5, 26
-        .byte <N_C5, >N_C5, 90
         .byte 0, 0, 0
 tune_box:                       // a bouncy little march
         .byte <N_E5, >N_E5, 9

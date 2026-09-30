@@ -226,13 +226,17 @@
 .label hval         = gv+81
 .label tbmp_hi      = gv+82
 .label tscr_hi      = gv+83
-.label mel_ptr      = gv+84     // 2
+.label mel_ptr      = $71       // 2 (zero page: used with (),y)
 .label mel_left     = gv+86
 .label mel_id       = gv+87
 .label mel_loop     = gv+88
+.label mel_wave     = gv+89
 .label g_gt         = gv+90     // 8 bytes of temporaries for the game tick
 .label fan_tm       = gv+100
 .label fan_i        = gv+101
+.label roll_off     = gv+102     // 5 AM -> 6 AM scroll offset (lines) requested by the frame tick
+.label roll_drawn   = gv+103
+.label roll_buf     = gv+112     // 64 bytes: two 16x32 strips (5 above 6)
 
 // main loop jobs
 .const J_LOAD       = 1

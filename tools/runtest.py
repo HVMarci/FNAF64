@@ -79,9 +79,10 @@ def main():
     for f in os.listdir(out):
         if f.endswith(".png"): os.remove(os.path.join(out, f))
     cycles = 90_000_000 + lastframe * 19656 + extra
-    cmd = ("yes x | timeout 600 %s %s -console -nativemonitor -warp -drive8truedrive +virtualdev8 "
-           "-moncommands %s -limitcycles %d +sound -autostart %s > %s 2>&1" %
-           (os.environ.get("EMU", "x64sc"), ("-ntsc" if os.environ.get("NTSC") else ""), monf, cycles, os.path.join(ROOT, "build", "fnaf64_test.d64"), os.path.join(ROOT, "build", "vice.log")))
+    cmd = ("yes x | timeout 600 %s %s -console -nativemonitor %s -drive8truedrive +virtualdev8 "
+           "-moncommands %s -limitcycles %d %s -autostart %s > %s 2>&1" %
+           (os.environ.get("EMU", "x64sc"), ("-ntsc" if os.environ.get("NTSC") else ""), ("" if os.environ.get("WAV") else "-warp"), monf, cycles,
+           ("-sound -sounddev wav -soundarg " + os.environ["WAV"] if os.environ.get("WAV") else "+sound"), os.path.join(ROOT, "build", "fnaf64_test.d64"), os.path.join(ROOT, "build", "vice.log")))
     subprocess.call(cmd, shell=True)
     got = sorted(os.listdir(out))
     print("snapshots:", got)

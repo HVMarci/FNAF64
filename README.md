@@ -143,7 +143,7 @@ loads and text cards through `mjob` / `mbusy`.
 title → static → night card (office assets load meanwhile) → office ⇄ monitor ⇄ camera switching
    office/camera → power out → dark office → Freddy in the doorway (music box) → blackout → jumpscare
    any animatronic → static → jumpscare frame 1 → static → frame 2 → GAME OVER → title
-   6 AM → "5 AM" → "6 AM" + chime → (newspaper after night 5, ending card after night 6) → title, next night
+   6 AM → "5 AM" rolls up and the "6" rolls in from below + chime → (newspaper after night 5, ending card after night 6) → title, next night
 ```
 The 12 AM card is on screen while the office bundle is (re)loaded, which also resets the office picture,
 patches and sprites. The dark-office pictures for the power outage replace the office bitmap the same way.
@@ -151,6 +151,10 @@ Bonnie and Freddy have no jumpscare art in `assets/`, so they are made from the 
 (`gen_jumpscares` in `tools/gen_assets.py`): the supply-closet close-up and the title-screen face, each plus a 2x zoom.
 
 ### Sound
+The tunes are plucked (attack/decay envelope, gate off between notes): a pulse-wave bell for the 6 AM chime and a
+triangle music box for Freddy. `WAV=out.wav python3 tools/runtest.py scenario.py` records the SID output (real-time,
+no warp) and `tools/wavstat.py out.wav` prints level and pitch per second, which is how a stuck tone was found.
+
 SID voice 1: fan rumble through the low-pass filter. Voice 2: 100 Hz light buzz / camera hiss, and the
 melody player (6 AM chime, Freddy's music box). Voice 3: one-shot effects – door servo + thump, monitor
 whoosh, camera blip, static bursts, footsteps, Freddy's laugh, the doorway sting, the scream, power-down,

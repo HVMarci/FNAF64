@@ -494,6 +494,66 @@ hc_next:
         ldy #5
         jmp DrawM
 
+//------------------------------------------------------------------------------
+// 5 AM -> 6 AM: the digit is a 16x16 window onto a 16x32 strip (5 above 6); the frame tick sets
+// roll_off (0..16 lines) and this copies the visible part into the two cell columns
+//------------------------------------------------------------------------------
+RollStep:
+        lda mode
+        cmp #M_WIN
+        bne rs_ret
+        lda roll_off
+        cmp roll_drawn
+        beq rs_ret
+        sta roll_drawn
+        sta zhk
+        lda #>CAM_BMP
+        sta tbmp_hi
+        lda #>CAM_SCR
+        sta tscr_hi
+        lda #0
+        sta zhb
+rs_lp:  lda zhb
+        and #1
+        clc
+        adc #11
+        tay
+        lda zhb
+        lsr
+        clc
+        adc #16
+        tax
+        jsr CellAddr
+        lda zhb
+        and #2                  // second column: strip starts at 32
+        asl
+        asl
+        asl
+        asl
+        sta zhr
+        lda zhb
+        and #1
+        asl
+        asl
+        asl
+        clc
+        adc zhr
+        clc
+        adc zhk
+        tax
+        ldy #0
+!:      lda roll_buf,x
+        sta (zdb),y
+        inx
+        iny
+        cpy #8
+        bne !-
+        inc zhb
+        lda zhb
+        cmp #4
+        bne rs_lp
+rs_ret: rts
+
 HudRefresh:
         lda hud_dirty
         beq hr_ret
@@ -643,11 +703,12 @@ DrawCard:
         pla
         beq dc_night
         cmp #CARD_5AM
-        beq dc_5
-        cmp #CARD_6AM
-        beq dc_6
-        cmp #CARD_OVER
-        beq dc_over
+        bne !+
+        jmp dc_5
+!:      cmp #CARD_OVER
+        bne !+
+        jmp dc_over
+!:
         // the end
         :SetStr(str_end1)
         ldx #5
@@ -673,14 +734,60 @@ dc_night:
         ldx #11
         ldy #13
         jmp DrawBig
-dc_5:   :SetStr(str_5am)
+dc_5:   :SetStr(str_am)         // " AM" stays; the digit rolls from 5 to 6 (see RollStep)
+        ldx #18
+        ldy #11
+        jsr DrawBig
+        :SetStr(str_5)
         ldx #16
         ldy #11
-        jmp DrawBig
-dc_6:   :SetStr(str_6am)
+        jsr DrawBig
+        :SetStr(str_6)          // the 6 waits below the 5 (rows 13-14), is copied into roll_buf and erased
         ldx #16
-        ldy #11
-        jmp DrawBig
+        ldy #13
+        jsr DrawBig
+        lda #0
+        sta zhb
+br_lp:  lda zhb
+        and #3
+        clc
+        adc #11
+        tay
+        lda zhb
+        lsr
+        lsr
+        clc
+        adc #16
+        tax
+        jsr CellAddr
+        lda zhb
+        asl
+        asl
+        asl
+        tax
+        ldy #0
+!:      lda (zdb),y
+        sta roll_buf,x
+        inx
+        iny
+        cpy #8
+        bne !-
+        lda zhb
+        and #2                  // cell rows 13-14: erase (only the 5 stays on screen)
+        beq br_nx
+        lda #0
+        ldy #7
+!:      sta (zdb),y
+        dey
+        bpl !-
+br_nx:  inc zhb
+        lda zhb
+        cmp #8
+        bne br_lp
+        lda #0
+        sta roll_off
+        sta roll_drawn
+        rts
 dc_over:
         :SetStr(str_over)
         ldx #11
@@ -738,9 +845,11 @@ str_night:  .text "NIGHT "
             .byte $ff
 str_1200:   .text "12:00 AM"
             .byte $ff
-str_5am:    .text "5 AM"
+str_am:     .text " AM"
             .byte $ff
-str_6am:    .text "6 AM"
+str_5:      .text "5"
+            .byte $ff
+str_6:      .text "6"
             .byte $ff
 str_choose: .text " CHOOSE NIGHT"
             .byte $ff
