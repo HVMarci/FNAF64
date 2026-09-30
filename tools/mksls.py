@@ -78,6 +78,11 @@ L.append("PlgIndex:\t7e")
 L.append("Plugin:\tsaver")
 L.append("")
 L.append("PlgIndex:\t7f")
-L.append("HSFile:\tblank\tbd00\t0000\t0100")
+if os.environ.get("SAVE_NIGHT"):        # disk with a ready-made save (./build.sh unlocked): same record the game writes
+    n = int(os.environ["SAVE_NIGHT"])
+    open(os.path.join(OUT, "gen", "save.bin"), "wb").write(bytes([0xa5, n, n ^ 0xff]) + bytes(253))
+    L.append("HSFile:\t\"gen/save.bin\"\tbd00")
+else:
+    L.append("HSFile:\tblank\tbd00\t0000\t0100")
 L.append("")
 open(os.path.join(OUT, name + ".sls"), "w").write("\n".join(L) + "\n")

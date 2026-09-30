@@ -32,6 +32,7 @@ tools/fetch_tools.sh # once: downloads KickAssembler, copies the Sparkle binary
 (Sparkle needs a real 1541-style drive; SD2IEC-type devices will not work). The loader needs
 **true drive emulation** in VICE (`-drive8truedrive +virtualdev8`, which `run.sh` sets).
 Autostart takes a few seconds; the title screen appears once the first files are loaded.
+`./build.sh unlocked` builds `dist/fnaf64_all_nights.d64`, a copy whose save says nights 1-7 are already open.
 **Progress is saved into the disk image itself** (the `.d64` must not be write-protected, and playing modifies
 `dist/fnaf64.d64`; `./build.sh` makes a fresh disk with a blank save).
 
