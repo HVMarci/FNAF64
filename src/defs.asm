@@ -193,6 +193,7 @@
 .label gv           = $0f00
 .label g_night      = gv+0      // 1..7
 .label g_maxnight   = gv+1
+.label g_savereq    = gv+240    // 1: write the reached night to the disk before the next load
 .label g_act        = gv+2      // 1 while the night clock and the animatronics run
 .label g_hour       = gv+3      // 0 (12 AM) .. 6
 .label g_hds        = gv+4      // 2 bytes: deciseconds left in this hour
@@ -278,6 +279,10 @@
 .const DI_DARK      = $48
 .const DI_DARKF     = $49
 .const DI_NEWS      = $4a
+.const DI_SAVER     = $7e       // Sparkle hi-score saver plugin
+.const DI_SAVEFILE  = $7f       // the hi-score file: one page, loaded to SAVE_BUF at boot
+.const SAVE_BUF     = $bd00
+.const SAVE_MAGIC   = $a5
 .const DI_PHONE     = $4f       // + night (1..5)
 .const PHONE_BUF    = $4a40     // the night's call text (loaded from disk)
 #if FASTHOUR

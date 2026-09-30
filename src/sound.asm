@@ -280,52 +280,70 @@ mel_sr:     .byte $08, $06
 mel_lo:     .byte <tune_chime, <tune_box
 mel_hi:     .byte >tune_chime, >tune_box
 mel_lp:     .byte 0, 1
-// note frequencies (PAL)
-.const N_C4 = $1168
-.const N_G4 = $19ef
-.const N_A4 = $1cd6
-.const N_B4 = $20d9
-.const N_C5 = $22cb
-.const N_D5 = $270d
-.const N_E5 = $2bda
-.const N_F5 = $2e71
-.const N_G5 = $3427
-.const N_A5 = $3a8b
-.const N_B5 = $41ba
-.const N_C6 = $45a6
-.segment Code4
+// note frequencies (PAL): SID value = Hz * 2^24 / 985248
+.function sidhz(hz) { .return round(hz * 16777216 / 985248) }
+.const N_E5  = sidhz(659.26)
+.const N_Fs5 = sidhz(739.99)
+.const N_Gs5 = sidhz(830.61)
+.const N_B4  = sidhz(493.88)
+.const N_Fs4 = sidhz(369.99)
+.const N_Gs4 = sidhz(415.30)
+.const N_As4 = sidhz(466.16)
+.const N_Cs5 = sidhz(554.37)
+.const N_Ds5 = sidhz(622.25)
+.macro Note(f, n) { .byte <f, >f, n }
+.segment Code3
+// 6 AM: the Westminster chime (E C D G - G D E C in C; here G# E F# B - B F# G# E in E major, as in the original clock)
 tune_chime:
-        .byte <N_C6, >N_C6, 18
-        .byte <N_G5, >N_G5, 18
-        .byte <N_E5, >N_E5, 18
-        .byte <N_C5, >N_C5, 50
-        .byte <N_C6, >N_C6, 18
-        .byte <N_G5, >N_G5, 18
-        .byte <N_E5, >N_E5, 18
-        .byte <N_C5, >N_C5, 60
+        Note(N_Gs5, 20)
+        Note(N_E5, 20)
+        Note(N_Fs5, 20)
+        Note(N_B4, 50)
+        Note(N_B4, 20)
+        Note(N_Fs5, 20)
+        Note(N_Gs5, 20)
+        Note(N_E5, 90)
         .byte 0, 0, 0
-tune_box:                       // a bouncy little march
-        .byte <N_E5, >N_E5, 9
-        .byte <N_E5, >N_E5, 5
-        .byte <N_E5, >N_E5, 9
-        .byte <N_E5, >N_E5, 5
-        .byte <N_G5, >N_G5, 14
-        .byte <N_E5, >N_E5, 14
-        .byte <N_D5, >N_D5, 9
-        .byte <N_D5, >N_D5, 5
-        .byte <N_D5, >N_D5, 9
-        .byte <N_D5, >N_D5, 5
-        .byte <N_F5, >N_F5, 14
-        .byte <N_D5, >N_D5, 14
-        .byte <N_C5, >N_C5, 9
-        .byte <N_C5, >N_C5, 5
-        .byte <N_C5, >N_C5, 9
-        .byte <N_C5, >N_C5, 5
-        .byte <N_E5, >N_E5, 14
-        .byte <N_C5, >N_C5, 14
-        .byte <N_G4, >N_G4, 30
-        .byte <N_B4, >N_B4, 14
-        .byte <N_C5, >N_C5, 40
+// Freddy's music box: the Toreador March refrain (Bizet, "Carmen") in F# major like the original recording.
+// Degrees: 5 6 5 3 | 3 3 2 3 4 3 | 4 2 5 3 | 1' 6 2' 5    2 2 6 5 4 | 3 2 3 4 3 | 4 2 5 3 | 1' 6 2' 5
+tune_box:
+        Note(N_Cs5, 10)         // 5 6 5 3
+        Note(N_Ds5, 10)
+        Note(N_Cs5, 10)
+        Note(N_As4, 20)
+        Note(N_As4, 10)         // 3 3 2 3 4 3
+        Note(N_As4, 10)
+        Note(N_Gs4, 10)
+        Note(N_As4, 10)
+        Note(N_B4, 10)
+        Note(N_As4, 20)
+        Note(N_B4, 10)          // 4 2 5 3
+        Note(N_Gs4, 10)
+        Note(N_Cs5, 10)
+        Note(N_As4, 20)
+        Note(N_Fs5, 14)         // 1' 6 2' 5
+        Note(N_Ds5, 14)
+        Note(N_Gs5, 14)
+        Note(N_Cs5, 34)
+        Note(N_Gs4, 10)         // 2 2 6 5 4
+        Note(N_Gs4, 10)
+        Note(N_Ds5, 10)
+        Note(N_Cs5, 10)
+        Note(N_B4, 20)
+        Note(N_As4, 10)         // 3 2 3 4 3
+        Note(N_Gs4, 10)
+        Note(N_As4, 10)
+        Note(N_B4, 10)
+        Note(N_As4, 20)
+        Note(N_B4, 10)          // 4 2 5 3
+        Note(N_Gs4, 10)
+        Note(N_Cs5, 10)
+        Note(N_As4, 20)
+        Note(N_Fs5, 14)         // 1' 6 2' 5
+        Note(N_Ds5, 14)
+        Note(N_Gs5, 14)
+        Note(N_Cs5, 34)
+        Note(0, 40)             // rest, then round again
         .byte 0, 0, 0
 
 .segment Code3

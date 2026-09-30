@@ -9,7 +9,7 @@
 
 .segmentdef Code1 [start=$1000, max=$1fff]
 .segmentdef Code2 [start=$4c00, max=$5fff]
-.segmentdef Code3 [start=$ad00, max=$be3f]   // bank 2 after the patches ($8000-$ac4b); $be40.. holds the fan frames
+.segmentdef Code3 [start=$ad00, max=$bcff]   // bank 2 after the patches ($8000-$ac4b); $bd00 is the save page, $be40.. holds the fan frames
 .segmentdef Code4 [start=$4400, max=$47bf]   // $47c0.. is the subtitle row screen RAM
 .file [name="code1.prg", segments="Code1"]
 .file [name="code2.prg", segments="Code2"]
@@ -46,6 +46,8 @@ Start:
         sta $d011
 
         jsr Sparkle_LoadNext    // bundle 2: office bitmap, patches, sprites
+        lda #DI_SAVEFILE        // the save page (the reached night), ApplySave reads it in InitState
+        jsr Sparkle_LoadA
 
         jsr InitState
         jsr InitFont
@@ -117,6 +119,7 @@ InitState:
         lda #1
         sta g_night
         sta g_maxnight
+        jsr ApplySave
         lda #$a5
         sta rng
         lda #$3c
@@ -162,8 +165,10 @@ InitState:
         lda #LAY_OFFICE
 #else
 #if TEST
-        lda #NIGHTS             // every night selectable in test builds
+#if !SAVETEST
+        lda #NIGHTS             // every night selectable in test builds (SAVETEST: use what the disk says)
         sta g_maxnight
+#endif
 #endif
         lda #M_TITLE
         sta mode
@@ -1512,7 +1517,10 @@ wn_finish:
         jsr AdvanceNight
         jmp GoTitle
 
+.segment Code2                  // (Code1 is nearly full)
 AdvanceNight:                   // nights 1-5: the next one; night 6 unlocks night 7 (the custom night); back to 1
+        lda g_maxnight
+        pha
         lda g_night
         cmp #6
         bcc an_inc
@@ -1521,14 +1529,20 @@ AdvanceNight:                   // nights 1-5: the next one; night 6 unlocks nig
         sta g_maxnight
 an_one: lda #1
         sta g_night
-        rts
+        jmp an_chk
 an_inc: inc g_night
         lda g_night
         cmp g_maxnight
-        bcc an_ret
-        beq an_ret
+        bcc an_chk
+        beq an_chk
         sta g_maxnight
+an_chk: pla
+        cmp g_maxnight
+        beq an_ret              // nothing new reached: no need to write the disk
+        lda #1
+        sta g_savereq
 an_ret: rts
+.segment Code1
 
 .segment Code4
 // card / bundle kind per static phase: card type, or $80 = newspaper
@@ -2018,6 +2032,10 @@ mj_card:
 mj_load:
         lda marg
         sta mt
+        lda g_savereq
+        beq !+
+        jsr DoSave              // a night was beaten: write it to the disk first
+!:
 #if TEST
         jsr LoadStartHook
 #endif
@@ -2361,6 +2379,43 @@ lr_ret: rts
 //==============================================================================
 .import source "sound.asm"
 
+
+//------------------------------------------------------------------------------
+// Saving: a Sparkle "hi-score file" (one page at SAVE_BUF) holds the reached night.
+// Layout: magic, night, night EOR $ff.  A blank disk (all zero) fails the check -> start at night 1.
+//------------------------------------------------------------------------------
+ApplySave:
+        lda SAVE_BUF
+        cmp #SAVE_MAGIC
+        bne as_ret
+        lda SAVE_BUF+1
+        eor #$ff
+        cmp SAVE_BUF+2
+        bne as_ret
+        lda SAVE_BUF+1
+        beq as_ret
+        cmp #NIGHTS+1
+        bcs as_ret
+        sta g_maxnight
+        cmp #NIGHTS             // night 7 open: the next game starts at night 1 (as after beating night 6)
+        bcc !+
+        lda #1
+!:      sta g_night
+as_ret: rts
+
+DoSave:
+        lda #0
+        sta g_savereq
+        lda #SAVE_MAGIC
+        sta SAVE_BUF
+        lda g_maxnight
+        sta SAVE_BUF+1
+        eor #$ff
+        sta SAVE_BUF+2
+        lda #DI_SAVER
+        jsr Sparkle_LoadA       // drive: enter the saver loop
+        lda #>$100
+        jmp Sparkle_Save        // overwrite the hi-score file, back to normal loading
 
 //------------------------------------------------------------------------------
 // Tables

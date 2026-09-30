@@ -15,7 +15,8 @@ movement rules of the original, jumpscares, power outages, and six nights.
   mumble instead of speech (`M` mutes it),
 * SID sound effects, background hum, Freddy's music box and the 6 AM chime,
 * a title screen (from `assets/lobby.png`) with night selection,
-* **night 7, the 20/20/20/20 custom night** (unlocked by beating night 6) and a **pause** key (`P`).
+* **night 7, the 20/20/20/20 custom night** (unlocked by beating night 6) and a **pause** key (`P`),
+* **saving to disk**: the reached night is written to the `.d64` after every night you beat, so the next start offers it again.
 
 Everything is loaded from a single `.d64` using the **Sparkle 3.3** IRQ fast loader.
 
@@ -31,13 +32,15 @@ tools/fetch_tools.sh # once: downloads KickAssembler, copies the Sparkle binary
 (Sparkle needs a real 1541-style drive; SD2IEC-type devices will not work). The loader needs
 **true drive emulation** in VICE (`-drive8truedrive +virtualdev8`, which `run.sh` sets).
 Autostart takes a few seconds; the title screen appears once the first files are loaded.
+**Progress is saved into the disk image itself** (the `.d64` must not be write-protected, and playing modifies
+`dist/fnaf64.d64`; `./build.sh` makes a fresh disk with a blank save).
 
 ### Controls
 
 | Key | Action |
 |---|---|
 | `SPACE` | start the night (title) / raise and lower the camera monitor |
-| `1`–`7` on the title | pick a night you have already reached (nights unlock by surviving the previous one; beating night 6 unlocks night 7) |
+| `1`–`7` on the title | pick a night you have already reached (nights unlock by surviving the previous one; beating night 6 unlocks night 7; the reached night is kept on the disk, see *Saving*) |
 | `A` / `L` | toggle left / right **door** |
 | `S` / `K` | hold left / right **light** (only one at a time) |
 | `M` | mute the phone call |
@@ -151,6 +154,17 @@ same ROM font as the HUD), so it appears over the office and over the camera pic
 The call stops on death, power outage, morning or when muted. The dialogue is my own condensed wording in
 Phone Guy's style, not a transcript.
 
+### Saving
+Sparkle can overwrite a predefined *hi-score file* on the last track of the disk, which is what the game uses
+(`tools/mksls.py`: a saver plugin at directory index `$7e` and a blank one-page `HSFile` at `$7f`, loaded to
+`SAVE_BUF` = `$bd00`). At start-up the page is loaded and `ApplySave` reads `magic $a5, night, night EOR $ff`; a blank
+disk fails the check, so the game starts at night 1. When a night is beaten and it opens a new one (`AdvanceNight`
+sets `g_savereq`), the next bundle load in the main loop (`MainJobs`) first runs `DoSave`: it writes the record into the
+page, loads the saver plugin and calls `Sparkle_Save` – the title screen static covers the second or so that the
+drive needs. The record lives **inside the disk image**, so the progress stays in the `.d64` you play (VICE writes it
+back with true drive emulation; a real 1541 / 1541 Ultimate writes it to the disk), and a rebuild (`./build.sh`) starts
+from a blank save again. After night 6 (night 7 unlocked) the next start selects night 1, as it does in a running session.
+
 ### Game flow
 `mode` in `src/main.asm` is the top-level state; the frame IRQ runs the state machine, the game tick
 (`GameTick` → 10 Hz `GameDs`) and the effects. The main loop owns the loader: the IRQ asks it for bundle
@@ -169,7 +183,10 @@ Bonnie and Freddy have no jumpscare art in `assets/`, so they are made from the 
 
 ### Sound
 The tunes are plucked (attack/decay envelope, gate off between notes): a pulse-wave bell for the 6 AM chime and a
-triangle music box for Freddy. `WAV=out.wav python3 tools/runtest.py scenario.py` records the SID output (real-time,
+triangle music box for Freddy. Both follow the original game: the 6 AM chime is the Westminster chime (`E C D G – G D E C`,
+played here as `G# E F# B – B F# G# E`), Freddy's music box is the *Toreador March* refrain from Bizet's *Carmen* in F# major
+(the key of the original recording; the notes come from FNaF transcriptions and were checked against the pitches of the
+game's `Music_box.ogg`). `WAV=out.wav python3 tools/runtest.py scenario.py` records the SID output (real-time,
 no warp) and `tools/wavstat.py out.wav` prints level and pitch per second, which is how a stuck tone was found.
 
 SID voice 1: fan rumble through the low-pass filter. Voice 2: 100 Hz light buzz / camera hiss, and the
@@ -187,7 +204,7 @@ $1000 Code1 (IRQ engine, display, door animation; ~80 bytes spare)   $2000 offic
 $4000 camera colours   $4400 Code4 (tables/strings; $47c0 subtitle colours)   $4800 sprites   $4a40 phone text
 $4c00 Code2 (state machine, AI, HUD, phone)   $6000 camera bitmap ($7e00 subtitle pixels)
 $8000-$ac4b door/light patches (11340 bytes)
-$ad00-$be3f Code3 (sound, pause, tables, test harness; ~3 KB spare)   $be40 fan frames
+$ad00-$bcff Code3 (sound, pause, save, tables, test harness; ~3 KB spare)   $bd00 save page   $be40 fan frames
 $c000.. noise/bar screens (also under I/O), $c800 sprites, $e000 noise bitmap
 ```
 `tools/check_layout.py` runs on every build and fails if anything that lives in RAM at the same time overlaps; the
@@ -242,14 +259,16 @@ Scenarios that cover the new game: `scen_flow` (title → night card → office 
 `scen_win` (6 AM and the next night), `scen_doorway` (hall lights show Bonnie / Chica), `scen_gallery1-3`
 (every camera with different animatronic positions), `scen_night7` / `scen_night7_play` / `scen_unlock7`
 (the custom night: title choice, levels, unlock by beating night 6), `scen_pause` (clock and sound freeze, resume).
+`tests/check_save.sh` (part of the suite) is the save test: beat night 1 on a fresh disk, check that the save record is on
+the `.d64`, boot the *same* disk again (`NOBUILD=1` makes `runtest.py` reuse the last test disk) and check the title offers
+night 2. Test builds normally unlock every night; `DEFINES = ["SAVETEST"]` turns that off so the disk decides.
 Scenarios with a `tests/check_dumps.py` check fail the suite when the game variables are wrong; the others are
 screenshots to look at (random static and disk timing make pixel-exact comparisons differ slightly between runs).
 
 ## Known limitations / next steps
 * Camera switch ≈ 1 s (1541 random access + decompression); more RAM would allow caching pictures.
 * Bonnie's and Freddy's jumpscares are improvised from existing art (no jumpscare pictures were supplied).
-* Not implemented: Golden Freddy, a custom night with adjustable levels (night 7 is the fixed 20/20/20/20 one), real speech for the phone calls, score / save (the reached night
-  is only kept while the machine is on), animatronic art *inside* the office besides Bonnie / Chica in the
+* Not implemented: Golden Freddy, a custom night with adjustable levels (night 7 is the fixed 20/20/20/20 one), real speech for the phone calls, score, animatronic art *inside* the office besides Bonnie / Chica in the
   hall-light windows.
 * Some details are simplified: Foxy's aggravation level, the exact camera-glitch timings, Freddy's stage-by-stage
   power-out timings (approximated with random 5–20 s phases).

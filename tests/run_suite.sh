@@ -14,6 +14,7 @@ for s in tests/scenarios/scen_*.py; do n=$(basename $s .py); n=${n#scen_}; grep 
   grep -q "CHECK FAILED ($n)" $log && ok=0; [ $ok = 1 ] && res+=("PASS  scenario $n") || res+=("FAIL  scenario $n"); done
 for seed in 1 2 3; do step "fuzz seed $seed (office buffer consistent)" python3 tests/fuzz.py $seed 2500; done
 step "door/light mid-animation rows" bash -c "python3 tools/runtest.py tests/scenarios/scen_doorlight.py >/dev/null && python3 tests/check_midanim.py"
+step "save to disk (beat night 1, reboot the same disk)" tests/check_save.sh
 step "consistency scenario" bash -c "python3 tools/runtest.py tests/scenarios/scen_consist.py >/dev/null && python3 tests/check_consist.py"
 [ -n "$BASE" ] && python3 tests/compare_shots.py "$BASE" build/shots $(ls tests/scenarios | sed 's/scen_//;s/\.py//') >> $log 2>&1
 

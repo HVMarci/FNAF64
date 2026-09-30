@@ -56,7 +56,10 @@ def main():
     env["KADEFS"] = " ".join("-define " + d for d in ns.get("DEFINES", []))
     if ns.get("TITLE"): env["TITLE"] = "1"
     else: env.pop("TITLE", None)
-    subprocess.check_call([os.path.join(ROOT, "build.sh"), "test"], stdout=subprocess.DEVNULL, env=env)
+    if os.environ.get("NOBUILD"):       # run the last test disk again (keeps what the game saved on it)
+        pass
+    else:
+        subprocess.check_call([os.path.join(ROOT, "build.sh"), "test"], stdout=subprocess.DEVNULL, env=env)
     sym = open(os.path.join(ROOT, "build", "main.sym")).read()
     m = re.search(r"\.label snapstubs=\$([0-9a-f]+)", sym)
     base = int(m.group(1), 16)

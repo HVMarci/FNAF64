@@ -26,6 +26,7 @@ FIXED = [
     ("RAM tables + sound vars", 0x0c00, 0x0d00),
     ("font copy", 0x0d00, 0x0f00),
     ("game variables", 0x0f00, 0x1000),
+    ("save page", 0xbd00, 0xbe00),
     ("noise screen 0", 0xc000, 0xc400),
     ("noise screen 1", 0xc400, 0xc800),
     ("dark bar screen", 0xcc00, 0xd000),
