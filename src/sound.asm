@@ -10,6 +10,8 @@
 .label sfx_wave   = sndvars+5
 .label amb2_cur   = sndvars+6
 .label amb2_want  = sndvars+7
+.label kit_ring   = sndvars+8   // ring-modulated kitchen hit: voice 2 is its modulator (1), or the noise clack still plays (2, 3)
+.label kit_q      = sndvars+9
 
 SndInit:
         ldx #24
@@ -109,7 +111,22 @@ st_amb:
         beq st_nomel
         jmp MelTick
 st_nomel:
-        lda amb2_cur
+        lda kit_ring
+        beq st_kn
+        cmp #2
+        bcc st_k1
+        dec kit_ring
+        cmp #3
+        beq st_k1               // the clack lasts two frames
+        lda sfx_wave
+        sta $d412               // then the ring-modulated tone
+st_k1:  lda sfx_left
+        bne st_ret              // the hit owns voice 2 until it has died away
+        lda #0
+        sta kit_ring
+        lda #$ff
+        sta amb2_cur            // then voice 2 goes back to the ambient sound
+st_kn:  lda amb2_cur
         cmp #$fe                // just after a melody: re-initialise the ambient voice
         bne st_amb2
         lda #$ff
@@ -418,9 +435,9 @@ sfx_tab:
         // 9 power down: falling saw
         .word $3800, $ff70
         .byte $21, $0a, $f8, 60
-        // 10 pans clattering: noise crash (the pitch is randomised by KitchenHit)
-        .word $5000, $ff00
-        .byte $81, $04, $03, 4
+        // 10 pans clattering: bright noise crash (the pitch is randomised by KitchenHit)
+        .word $7000, $0000
+        .byte $81, $03, $03, 5
         // 11 groan: low growl
         .word $0700, $0006
         .byte $21, $06, $b0, 40
@@ -433,14 +450,14 @@ sfx_tab:
         // 14 receiver click
         .word $5000, $fe00
         .byte $81, $00, $00, 4
-        // 15 pot clang: ringing pulse, pitch sinking a little
-        .word $3000, $ffe0
-        .byte $41, $06, $05, 4
-        // 16 / 17 the same two, quiet: slow attack and a short gate, so the envelope never gets far up
-        .word $4000, $0000
-        .byte $81, $a4, $03, 4
+        // 15 pot clang: triangle ring-modulated by voice 2 (KitchenHit sets both pitches): inharmonic, metallic
         .word $3000, $0000
-        .byte $41, $a6, $05, 4
+        .byte $15, $06, $05, 5
+        // 16 / 17 the same two, quiet: no decay, a low sustain level (the 8 ms attack peak is the clang)
+        .word $4000, $0000
+        .byte $81, $00, $33, 5
+        .word $3000, $0000
+        .byte $15, $00, $46, 5
 
 .segment Code3
 

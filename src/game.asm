@@ -563,7 +563,7 @@ ae_knock:
         dec knock
         jmp ae_kit
 ae_kt:  dec knock_tm
-ae_kit: lda ai_pos+2            // Chica in the kitchen: bursts of 5 - 8 clangs and clatters, then a pause
+ae_kit: lda ai_pos+2            // Chica in the kitchen: long bursts of clangs and clatters, short pauses
         cmp #9
         bne ae_kz
         lda kit_hits
@@ -572,53 +572,93 @@ ae_kit: lda ai_pos+2            // Chica in the kitchen: bursts of 5 - 8 clangs 
         beq ae_kn
         dec kitchen_tm
         rts
-ae_kn:  jsr Random
-        and #3
+ae_kn:  jsr Random              // 8 - 23 beats
+        and #$0f
         clc
-        adc #5
+        adc #8
         sta kit_hits
         rts
 ae_kh:  dec kit_hits
         bne ae_kb
-        jsr Random              // pause 1.5 - 4.6 s
-        and #$1f
+        jsr Random              // pause 0.3 - 1 s
+        and #7
         clc
-        adc #15
+        adc #3
         sta kitchen_tm
 ae_kb:  jsr Random
-        and #3
-        beq ae_end              // a quarter of the beats are left out: irregular rhythm
+        and #7
+        beq ae_end              // one beat in eight is left out: irregular rhythm
         jmp KitchenHit
 ae_kz:  lda #0
         sta kit_hits
 ae_end: rts
 
 //------------------------------------------------------------------------------
-// One pot clang or pan clatter at a random pitch: full strength while watching camera 6, quiet everywhere else (office, other cameras)
+// One pot clang or pan clatter at a random pitch: full strength while watching camera 6, quiet in the office, only a quiet clatter on the other cameras
 // (voice 3 is left alone while another effect uses it)
 //------------------------------------------------------------------------------
 KitchenHit:
-        lda sfx_left
+        lda mel_id              // voice 2 plays the music box
         bne kh_ret
-        jsr Random
-        and #1
-        tax
+        lda sfx_left
+        beq kh_go
+        lda kit_ring            // another kitchen hit may be retriggered, any other effect is left alone
+        beq kh_ret
+kh_go:  jsr Random
+        and #3
+        beq !+                  // one in four: lid / pan clatter (noise), the rest: pot clang
+        lda #1
+!:      tax
         jsr MonUp
-        bcc kh_q
+        bcc kh_q                // office: quiet
         lda cam_cur
-        cmp #9                  // camera 6 (kitchen)
-        beq !+
+        cmp #9                  // camera 6 (kitchen): loud
+        beq kh_id
+        ldx #0                  // other cameras: quiet clatter only, the camera hiss keeps voice 2
 kh_q:   inx
         inx
-!:      lda kit_id,x
+kh_id:  lda kit_id,x
         jsr SndStart
-        jsr Random
+        lda sfx_wave
+        and #4
+        bne kh_ring
+        jsr Random              // noise crash: bright
         and #$3f
         clc
-        adc #$30
+        adc #$70
         sta sfx_fh
         sta $d40f
+        rts
+kh_ring:
+        jsr Random              // carrier 1 - 1.5 kHz
+        and #$1f
+        clc
+        adc #$40
+        sta sfx_fh
+        sta $d40f
+        lsr
+        lsr
+        sta kit_q
+        jsr Random              // voice 2 as the modulator at 1.5 / 1.75 / 2.25 / 2.5 times the carrier: inharmonic partials
+        sta $d407
+        and #3
+        tax
+        lda kit_mul,x
+        tay
+        lda #0
+        clc
+!:      adc kit_q
+        dey
+        bne !-
+        sta $d408
+        lda #0
+        sta $d40b               // no waveform of its own, the oscillator still runs
+        lda #$81                // the hit starts with a short noise clack, SndTick then switches to the ring-modulated tone
+        sta $d412
+        lda #3
+        sta kit_ring
 kh_ret: rts
+kit_mul: .byte 6, 7, 9, 10
 kit_id: .byte SFX_CLATTER, SFX_CLANG, SFX_CLATTERQ, SFX_CLANGQ
 
 //------------------------------------------------------------------------------
