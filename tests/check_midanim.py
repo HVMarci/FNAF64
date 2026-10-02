@@ -13,7 +13,7 @@ for m in re.finditer(r"^>C:([0-9a-f]{4})\s+((?:[0-9a-f]{2}\s+){1,16})", log, re.
     for i, b in enumerate(m.group(2).split()): cur[a + i] = int(b, 16)
 if cur: states.append(cur)
 names = ["dl_lit_closing", "dl_unlit_closing", "dl_lit2_closing", "dl_closed_lit", "dl_lit_opening", "dl_unlit_opening", "dl_lit2_opening", "dl_end"]
-normal, light, closed = g.office_state("normal"), g.office_state("dorelight"), g.office_state("door_2")
+normal, light, closed = g.office_state("normal"), g.office_state("doorlight"), g.office_state("door_2")
 worst = 0
 for n, st in zip(names, states):
     p = os.path.join(ROOT, "build", "mem_%s.bin" % n)

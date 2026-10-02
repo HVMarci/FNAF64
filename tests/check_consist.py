@@ -17,7 +17,7 @@ lwant = [zp[0x36], zp[0x37]]
 print("door states", dstate, "light", lwant, "mode", zp[0x17])
 bmp = open(os.path.join(ROOT, "build", "mem_bmp.bin"), "rb").read()[2:]
 scr = open(os.path.join(ROOT, "build", "mem_scr.bin"), "rb").read()[2:]
-normal, light, closed = g.office_state("normal"), g.office_state("dorelight"), g.office_state("door_2")
+normal, light, closed = g.office_state("normal"), g.office_state("doorlight"), g.office_state("door_2")
 anim = g.office_state("animatronics")
 lit = {0: normal, 1: light, 4: anim}
 eb, es = bytearray(normal[0]), bytearray(normal[1])

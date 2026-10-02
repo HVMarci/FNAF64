@@ -86,14 +86,14 @@ def draw_text(cv, x, y, s, color, scale=1, sx=1):
 # name, asset dir, default frame, (key label), hud grid position (col,row)
 CAMS = [
     ("1A", "stage", "SHOW STAGE", (1, 0)),
-    ("1B", "party room", "DINING AREA", (1, 1)),
-    ("1C", "foxy tage", "PIRATE COVE", (1, 2)),
-    ("2A", "left hallway", "WEST HALL", (1, 3)),
-    ("2B", "left corner", "W. HALL CORNER", (1, 4)),
+    ("1B", "party_room", "DINING AREA", (1, 1)),
+    ("1C", "foxy_stage", "PIRATE COVE", (1, 2)),
+    ("2A", "left_hallway", "WEST HALL", (1, 3)),
+    ("2B", "left_corner", "W. HALL CORNER", (1, 4)),
     ("3", "cabinet", "SUPPLY CLOSET", (0, 4)),
-    ("4A", "right hallway", "EAST HALL", (2, 3)),
-    ("4B", "right corner", "E. HALL CORNER", (2, 4)),
-    ("5", "service room", "BACKSTAGE", (0, 2)),
+    ("4A", "right_hallway", "EAST HALL", (2, 3)),
+    ("4B", "right_corner", "E. HALL CORNER", (2, 4)),
+    ("5", "service_room", "BACKSTAGE", (0, 2)),
     ("6", None, "KITCHEN", (3, 2)),
     ("7", "restroom", "RESTROOMS", (3, 1)),
 ]
@@ -215,7 +215,7 @@ REC_SIZE = len(PATCH_CELLS[LEFT_COL0]) * 9              # 63
 
 
 def office_state(name):
-    return hires_convert(load_indexed(os.path.join(ASSETS, "office", "office %s.png" % name)))
+    return hires_convert(load_indexed(os.path.join(ASSETS, "office", "office_%s.png" % name)))
 
 
 def patch_records(state, col0, rows=None):
@@ -233,7 +233,7 @@ def patch_records(state, col0, rows=None):
 
 def gen_office():
     normal = office_state("normal")
-    light = office_state("dorelight")
+    light = office_state("doorlight")
     closed = office_state("door_2")
     half = office_state("door_1")
     open(os.path.join(OUT, "office.bmp"), "wb").write(normal[0])
@@ -248,7 +248,7 @@ def gen_office():
         out += b"".join(patch_records(half, col0, rows=[11, 12]))
         out += b"".join(patch_records(anim, col0))
     open(os.path.join(OUT, "patches.bin"), "wb").write(out)
-    for name, fn in (("dark", "dark"), ("dark freddy", "darkfreddy")):
+    for name, fn in (("dark", "dark"), ("dark_freddy", "darkfreddy")):
         b, sc = office_state(name)
         open(os.path.join(OUT, fn + ".bmp"), "wb").write(b)
         open(os.path.join(OUT, fn + ".scr"), "wb").write(sc)
