@@ -418,9 +418,9 @@ sfx_tab:
         // 9 power down: falling saw
         .word $3800, $ff70
         .byte $21, $0a, $f8, 60
-        // 10 pots and pans: noisy rattle
-        .word $6800, $0500
-        .byte $81, $00, $00, 12
+        // 10 pans clattering: noise crash (the pitch is randomised by KitchenHit)
+        .word $5000, $ff00
+        .byte $81, $04, $03, 4
         // 11 groan: low growl
         .word $0700, $0006
         .byte $21, $06, $b0, 40
@@ -433,6 +433,14 @@ sfx_tab:
         // 14 receiver click
         .word $5000, $fe00
         .byte $81, $00, $00, 4
+        // 15 pot clang: ringing pulse, pitch sinking a little
+        .word $3000, $ffe0
+        .byte $41, $06, $05, 4
+        // 16 / 17 the same two, quiet: slow attack and a short gate, so the envelope never gets far up
+        .word $4000, $0000
+        .byte $81, $a4, $03, 4
+        .word $3000, $0000
+        .byte $41, $a6, $05, 4
 
 .segment Code3
 

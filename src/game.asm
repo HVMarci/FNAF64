@@ -563,20 +563,63 @@ ae_knock:
         dec knock
         jmp ae_kit
 ae_kt:  dec knock_tm
-ae_kit: lda ai_pos+2            // pots and pans while Chica is in the kitchen
+ae_kit: lda ai_pos+2            // Chica in the kitchen: bursts of 5 - 8 clangs and clatters, then a pause
         cmp #9
-        bne ae_end
+        bne ae_kz
+        lda kit_hits
+        bne ae_kh
         lda kitchen_tm
-        bne ae_kd
-        jsr Random
+        beq ae_kn
+        dec kitchen_tm
+        rts
+ae_kn:  jsr Random
+        and #3
+        clc
+        adc #5
+        sta kit_hits
+        rts
+ae_kh:  dec kit_hits
+        bne ae_kb
+        jsr Random              // pause 1.5 - 4.6 s
         and #$1f
         clc
         adc #15
         sta kitchen_tm
-        lda #SFX_CLATTER
-        jmp SndStart
-ae_kd:  dec kitchen_tm
+ae_kb:  jsr Random
+        and #3
+        beq ae_end              // a quarter of the beats are left out: irregular rhythm
+        jmp KitchenHit
+ae_kz:  lda #0
+        sta kit_hits
 ae_end: rts
+
+//------------------------------------------------------------------------------
+// One pot clang or pan clatter at a random pitch: full strength while watching camera 6, quiet everywhere else (office, other cameras)
+// (voice 3 is left alone while another effect uses it)
+//------------------------------------------------------------------------------
+KitchenHit:
+        lda sfx_left
+        bne kh_ret
+        jsr Random
+        and #1
+        tax
+        jsr MonUp
+        bcc kh_q
+        lda cam_cur
+        cmp #9                  // camera 6 (kitchen)
+        beq !+
+kh_q:   inx
+        inx
+!:      lda kit_id,x
+        jsr SndStart
+        jsr Random
+        and #$3f
+        clc
+        adc #$30
+        sta sfx_fh
+        sta $d40f
+kh_ret: rts
+kit_id: .byte SFX_CLATTER, SFX_CLANG, SFX_CLATTERQ, SFX_CLANGQ
 
 //------------------------------------------------------------------------------
 // Which picture does camera cam_cur show right now?  -> fwant (bundle number)

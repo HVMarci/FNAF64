@@ -186,6 +186,9 @@
 .const SFX_KNOCK    = 12
 .const SFX_RING     = 13
 .const SFX_CLICK    = 14
+.const SFX_CLANG    = 15        // kitchen: pot ding (loud), then the quiet versions of both sounds
+.const SFX_CLATTERQ = 16
+.const SFX_CLANGQ   = 17
 .const MEL_CHIME    = 1
 .const MEL_BOX      = 2
 .label zwin          = $69   // main temp: 0 door cells / 1 window cells
@@ -241,6 +244,7 @@
 .label knock_tm     = gv+49
 .label kitchen_tm   = gv+50
 .label groan_tm     = gv+51
+.label kit_hits     = gv+55     // kitchen clatter: hits left in the burst
 .label hbuf         = gv+56     // 24 bytes: text buffer (screen codes, $ff terminated)
 .label hcol         = gv+80
 .label hval         = gv+81
