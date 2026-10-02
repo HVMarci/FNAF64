@@ -31,6 +31,13 @@ for side, col0 in enumerate((2, 29)):
         for cx, src in cells:
             eb[(r * 40 + cx) * 8:(r * 40 + cx) * 8 + 8] = src[0][(r * 40 + cx) * 8:(r * 40 + cx) * 8 + 8]
             es[r * 40 + cx] = src[1][r * 40 + cx]
+# the door / light buttons (cols 1 and 38, two cells each): door button lit while the door is closing or closed, light button while the light is on
+for side, col in enumerate((1, 38)):
+    for row, src, on in ((10, closed, dstate[side] in (1, 2)), (13, light, lwant[side] != 0)):
+        if on:
+            for r in (row, row + 1):
+                eb[(r * 40 + col) * 8:(r * 40 + col) * 8 + 8] = src[0][(r * 40 + col) * 8:(r * 40 + col) * 8 + 8]
+                es[r * 40 + col] = src[1][r * 40 + col]
 lamp = {r * 40 + c for r in range(5) for c in range(17, 23)}      # lamp flicker cells vary
 hud = set(range(80)) | {r * 40 + c for r in range(11, 16) for c in range(19, 24)}      # + the animated fan                                                    # rows 0-1: power / clock text
 ok = all(bytes(bmp[i * 8:i * 8 + 8]) == bytes(eb[i * 8:i * 8 + 8]) for i in range(1000) if i not in hud) and \

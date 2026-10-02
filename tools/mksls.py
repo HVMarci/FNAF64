@@ -3,7 +3,7 @@
 import os
 import sys
 sys.path.insert(0, os.path.dirname(__file__))
-from gen_assets import CAMS, frame_counts, JS_KIND
+from gen_assets import CAMS, frame_counts
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "build")
@@ -54,8 +54,6 @@ for who in range(4):
         L.append("DirIndex:\t%02x" % (0x40 + who * 2 + f))
         L.append("File:\t\"gen/js_%d_%d.bmp\"\t6000" % (who, f))
         L.append("File:\t\"gen/js_%d_%d.scr\"\t4000" % (who, f))
-        if JS_KIND[who] == "mc":
-            L.append("File:\t\"gen/js_%d_%d.col\"\td800" % (who, f))
         L.append("")
 for n, (fn, di) in enumerate((("dark", 0x48), ("darkfreddy", 0x49))):
     L.append("<< %s office >>" % fn)

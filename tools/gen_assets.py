@@ -2,8 +2,8 @@
 """Generates all binary assets for the C64 FNaF port into build/gen/.
 
   office.bmp/.scr        hires office (base state)
-  patches.bin            door / light patches for both sides (see PATCH layout)
-  sprites.bin            sprite images (button icons, REC indicator)
+  patches.bin            door / light patches for both sides (see PATCH layout), then the 4 buttons x 2 states
+  sprites.bin            sprite image (REC indicator)
   cam_NN_F.bmp/.scr/.col multicolor camera frames with the HUD baked in
 """
 import os
@@ -231,6 +231,32 @@ def patch_records(state, col0, rows=None):
     return recs
 
 
+# The door / light buttons are part of the office pictures, two cells (16 pixel rows) each, in the column next to the door
+# patches. Drawn at run time as 4 independent buttons: L door, L light, R door, R light (src/main.asm ButtonRender).
+BUTTONS = [(1, 10), (1, 13), (38, 10), (38, 13)]       # (text column, upper text row)
+
+
+def cell_data(state, col, row):
+    bmp, scr = state
+    return (b"".join(bytes(bmp[(r * 40 + col) * 8:(r * 40 + col) * 8 + 8]) for r in (row, row + 1))
+            + bytes(scr[r * 40 + col] for r in (row, row + 1)))
+
+
+def button_records(normal, light, closed):
+    """4 buttons x (off, lit) x 18 bytes: bitmap of the upper cell, of the lower cell, their 2 screen bytes.
+    A door button is lit (green) in the closed-door picture, a light button in the light-on picture; the same cells
+    must look like in the normal picture in the other state, so the two buttons of a side are independent."""
+    out = b""
+    for i, (col, row) in enumerate(BUTTONS):
+        door = i % 2 == 0
+        off = cell_data(normal, col, row)
+        on = cell_data(closed if door else light, col, row)
+        assert on != off
+        assert cell_data(light if door else closed, col, row) == off, "button %d depends on the other button" % i
+        out += off + on
+    return out
+
+
 def gen_office():
     normal = office_state("normal")
     light = office_state("doorlight")
@@ -247,6 +273,7 @@ def gen_office():
             out += b"".join(patch_records(st, col0))
         out += b"".join(patch_records(half, col0, rows=[11, 12]))
         out += b"".join(patch_records(anim, col0))
+    out += button_records(normal, light, closed)
     open(os.path.join(OUT, "patches.bin"), "wb").write(out)
     for name, fn in (("dark", "dark"), ("dark_freddy", "darkfreddy")):
         b, sc = office_state(name)
@@ -299,23 +326,6 @@ def sp_disc(cv, cx, cy, r, filled=True, ring=2):
                     cv[y][x] = '#'
 
 
-def button_sprite(label, filled, key):
-    cv = sprite_canvas()
-    w = len(label) * 4 - 1
-    sp_text(cv, (24 - w) // 2, 0, label)
-    sp_disc(cv, 11.5, 13.5, 7, filled=True if filled else False, ring=2)
-    if filled:
-        # carve the key letter out of the lit disc
-        g = FONT[key]
-        for gy, row in enumerate(g):
-            for gx, c in enumerate(row):
-                if c == '1':
-                    cv[11 + gy][10 + gx] = '.'
-    else:
-        sp_text(cv, 10, 11, key)
-    return sprite_from_rows(["".join(r) for r in cv])
-
-
 def rec_sprite(dot):
     cv = sprite_canvas()
     if dot:
@@ -325,38 +335,12 @@ def rec_sprite(dot):
 
 
 def gen_sprites():
-    # 0 left door ring, 1 left light ring, 2 right door ring, 3 right light ring,
-    # 4-7 the same as lit (filled) overlays
-    imgs = [
-        button_sprite("DOOR", False, "A"),
-        button_sprite("LIGHT", False, "S"),
-        button_sprite("DOOR", False, "L"),
-        button_sprite("LIGHT", False, "K"),
-        button_sprite("DOOR", True, "A"),
-        button_sprite("LIGHT", True, "S"),
-        button_sprite("DOOR", True, "L"),
-        button_sprite("LIGHT", True, "K"),
-        rec_sprite(True),
-    ]
-    open(os.path.join(OUT, "sprites.bin"), "wb").write(b"".join(imgs))
-    return imgs
+    # the only sprite: the camera view's REC indicator (the office buttons are part of the office pictures)
+    open(os.path.join(OUT, "sprites.bin"), "wb").write(rec_sprite(True))
 
 
-def preview_office(normal, imgs):
-    from PIL import ImageDraw
-    im = render_hires(*normal)
-    px = im.load()
-    def blit(img, x, y, colr):
-        for r in range(21):
-            for c in range(24):
-                if img[r * 3 + c // 8] & (0x80 >> (c % 8)):
-                    if 0 <= x + c < 320 and 0 <= y + r < 200:
-                        px[x + c, y + r] = colr
-    sys.path.insert(0, os.path.dirname(__file__))
-    import layout
-    for (x, y, i, col) in layout.OFFICE_SPRITES_PREVIEW(imgs):
-        blit(imgs[i], x, y, rgb(col))
-    im.resize((640, 400), Image.NEAREST).save(os.path.join(OUT, "prev_office.png"))
+def preview_office(normal):
+    render_hires(*normal).resize((640, 400), Image.NEAREST).save(os.path.join(OUT, "prev_office.png"))
 
 
 def gen_lamp(normal):
@@ -482,13 +466,6 @@ def gen_title():
 
 # ------------------------------------------------------------ jumpscares
 # who: 0 Freddy, 1 Bonnie, 2 Chica, 3 Foxy  (two frames each: the scare and a lunge)
-JS_KIND = {0: "hires", 1: "mc", 2: "hires", 3: "hires"}
-
-
-def zoom2(idx, x0, y0, w, h):
-    """Nearest-neighbour 2x zoom of a w x h window (returned as a full-size image)."""
-    return [[idx[y0 + y // 2][x0 + x // 2] for x in range(w * 2)] for y in range(h * 2)]
-
 
 def write_hires(name, idx):
     b, sc = hires_convert(idx)
@@ -498,30 +475,9 @@ def write_hires(name, idx):
     return render_hires(b, sc)
 
 
-def write_mc(name, cv):
-    b, sc, col = mc_convert(cv)
-    base = os.path.join(OUT, name)
-    open(base + ".bmp", "wb").write(b)
-    open(base + ".scr", "wb").write(sc)
-    open(base + ".col", "wb").write(col)
-    return render_mc(b, sc, col)
-
-
 def gen_jumpscares():
     prev = []
-    # Freddy: the title-screen face without the text, then a 2x zoom on the eye / muzzle
-    lobby = load_indexed(os.path.join(ASSETS, "lobby.png"))
-    for y in range(200):
-        for x in range(140):
-            lobby[y][x] = 0
-    prev.append(write_hires("js_0_0", lobby))
-    prev.append(write_hires("js_0_1", zoom2(lobby, 148, 40, 160, 100)))
-    # Bonnie: the close-up from the supply closet, then a 2x zoom on the face
-    cab = mc_canvas_from_indexed(load_indexed(os.path.join(ASSETS, "camera", "cabinet", "2.png")))
-    prev.append(write_mc("js_1_0", cab))
-    z = [[cab[24 + y // 2][20 + x // 2] for x in range(160)] for y in range(200)]
-    prev.append(write_mc("js_1_1", z))
-    for who, d in ((2, "chica"), (3, "foxy")):
+    for who, d in enumerate(("freddy", "bonnie", "chica", "foxy")):
         for f in (1, 2):
             idx = load_indexed(os.path.join(ASSETS, "jumpscare", d, "%d.png" % f))
             prev.append(write_hires("js_%d_%d" % (who, f - 1), idx))
@@ -622,7 +578,7 @@ if __name__ == "__main__":
     normal = gen_office()
     gen_lamp(normal)
     gen_fan(normal)
-    imgs = gen_sprites()
+    gen_sprites()
     files = gen_cams()
-    preview_office(normal, imgs)
+    preview_office(normal)
     print("cam frames:", len(files))

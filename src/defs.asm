@@ -36,6 +36,10 @@
 .const P_C          = 44*REC_SZ
 .const P_S          = 66*REC_SZ
 .const P_A          = 68*REC_SZ    // light on + Bonnie / Chica in the doorway
+// Button cells (the buttons are part of the office picture), after the two sides: 4 buttons (L door, L light, R door,
+// R light) x 2 states (off, lit) x 18 bytes = bitmap of the upper cell, of the lower cell, their 2 screen bytes
+.const BTN_DATA     = PATCHES + 2*SIDE_SZ
+.const BTN_SZ       = 18
 
 // layers (row sources)
 .const LAY_OFFICE   = 0
@@ -186,6 +190,7 @@
 .const MEL_BOX      = 2
 .label zwin          = $69   // main temp: 0 door cells / 1 window cells
 .label wdrawn       = $6a   // 2 bytes: window variant drawn
+.label bdrawn       = $68   // door / light buttons drawn lit in the office picture (bit 0 L door, 1 L light, 2 R door, 3 R light)
 
 //------------------------------------------------------------------------------
 // Game state (RAM $0f00.., see src/game.asm). Font copy at $0d00 (64 glyphs).

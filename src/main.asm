@@ -267,48 +267,27 @@ FillSolid:
 // Sprites
 //------------------------------------------------------------------------------
 InitSprites:
-        // pointers
+        // the REC indicator is the only sprite (camera views); every slot points at it
         ldx #7
-!:      lda ptr_office,x
-        sta $07f8,x
-        lda ptr_cam,x
+        lda #SPR_PTR
+!:      sta $07f8,x
         sta CAM_SCR+$3f8,x
         sta NZ_SCR0+$3f8,x
         sta $c400+$3f8,x
         sta $cc00+$3f8,x
         dex
         bpl !-
-        lda #$34
-        sta $01
+        ldx #$34
+        stx $01
         ldx #7
-!:      lda ptr_cam,x
-        sta $d000+$3f8,x
+!:      sta $d000+$3f8,x
         sta $d400+$3f8,x
         sta $d800+$3f8,x
         sta $dc00+$3f8,x
         dex
         bpl !-
-        lda #$35
-        sta $01
-        // positions (office layout, keep in sync with tools/layout.py)
-        ldx #7
-!:      txa
-        asl
-        tay
-        lda spr_x,x
-        sta $d000,y
-        lda spr_y,x
-        sta $d001,y
-        dex
-        bpl !-
-        lda #$00
-        sta $d010
-        // colours
-        ldx #7
-!:      lda spr_col,x
-        sta $d027,x
-        dex
-        bpl !-
+        ldx #$35
+        stx $01
         lda #0
         sta $d015
         sta $d017
@@ -1895,38 +1874,10 @@ ll_ret: rts
 //------------------------------------------------------------------------------
 SpriteUpdate:
         lda sprmode
-        bne !+
+        cmp #2
+        beq spr_cam
+        lda #0                  // no sprites in the office: its buttons are part of the picture
         sta $d015
-        rts
-!:      cmp #1
-        bne spr_cam
-        // office: rings + lit overlays
-        lda #$0f
-        ldx dstate
-        beq !+
-        cpx #DS_OPENING
-        beq !+
-        ora #$10
-!:      ldx dstate+1
-        beq !+
-        cpx #DS_OPENING
-        beq !+
-        ora #$40
-!:      ldx lwant
-        beq !+
-        ora #$20
-!:      ldx lwant+1
-        beq !+
-        ora #$80
-!:      sta $d015
-        lda #90                 // slot 0 back to the door button
-        sta $d000
-        lda #108
-        sta $d001
-        lda #15
-        sta $d027
-        lda #0
-        sta $d010
         rts
 spr_cam:
         lda #38                 // REC indicator (x = 294 -> MSB set)
@@ -2052,6 +2003,7 @@ mw:     lda frame
         jsr LightRender
         ldx #1
         jsr LightRender
+        jsr ButtonRender
         jsr FanStep
         jsr RollStep
         jsr SubDraw
@@ -2419,6 +2371,104 @@ lr_lp:  lda zrow
         jmp lr_lp
 lr_ret: rts
 
+//------------------------------------------------------------------------------
+// Door / light buttons: part of the office picture, two cells each. Redraw the cells of a button
+// whenever its state (closed or closing / light wanted) differs from the drawn one.
+//------------------------------------------------------------------------------
+ButtonRender:
+        lda #0
+        ldx dstate
+        beq !+
+        cpx #DS_OPENING
+        beq !+
+        ora #1
+!:      ldx lwant
+        beq !+
+        ora #2
+!:      ldx dstate+1
+        beq !+
+        cpx #DS_OPENING
+        beq !+
+        ora #4
+!:      ldx lwant+1
+        beq !+
+        ora #8
+!:      sta zvar                // wanted states
+        eor bdrawn
+        sta zrow                // buttons to redraw
+        beq btn_ret
+        lda zvar
+        sta bdrawn
+        ldx #3
+btn_lp:  lda bu_mask,x
+        and zrow
+        beq btn_nx
+        lda bu_mask,x
+        and zvar
+        beq !+
+        lda #BTN_SZ             // lit variant
+!:      clc
+        adc bu_src_lo,x
+        sta zsrc
+        lda bu_src_hi,x
+        adc #0
+        sta zsrc+1
+        lda bu_bmp_lo,x
+        sta zdb
+        lda bu_bmp_hi,x
+        sta zdb+1
+        lda bu_scr_lo,x
+        sta zds
+        lda bu_scr_hi,x
+        sta zds+1
+        ldy #7                  // upper cell
+!:      lda (zsrc),y
+        sta (zdb),y
+        dey
+        bpl !-
+        clc                     // lower cell: next text row
+        lda zdb+1
+        adc #1
+        sta zdb+1
+        lda zdb
+        adc #$40
+        sta zdb
+        bcc !+
+        inc zdb+1
+!:      clc
+        lda zsrc
+        adc #8
+        sta zsrc
+        bcc !+
+        inc zsrc+1
+!:      ldy #7
+!:      lda (zsrc),y
+        sta (zdb),y
+        dey
+        bpl !-
+        ldy #8                  // the two screen bytes follow the bitmap cells
+        lda (zsrc),y
+        ldy #0
+        sta (zds),y
+        ldy #9
+        lda (zsrc),y
+        ldy #40
+        sta (zds),y
+btn_nx:  dex
+        bpl btn_lp
+btn_ret: rts
+
+// buttons: 0 L door, 1 L light, 2 R door, 3 R light (rows 10 / 13, columns 1 / 38)
+bu_mask:    .byte 1, 2, 4, 8
+bu_src_lo:  .fill 4, <(BTN_DATA + i*2*BTN_SZ)
+bu_src_hi:  .fill 4, >(BTN_DATA + i*2*BTN_SZ)
+.var bu_row = List().add(10, 13, 10, 13)
+.var bu_col = List().add(1, 1, 38, 38)
+bu_bmp_lo:  .fill 4, <(OFF_BMP + (bu_row.get(i)*40 + bu_col.get(i))*8)
+bu_bmp_hi:  .fill 4, >(OFF_BMP + (bu_row.get(i)*40 + bu_col.get(i))*8)
+bu_scr_lo:  .fill 4, <(OFF_SCR + bu_row.get(i)*40 + bu_col.get(i))
+bu_scr_hi:  .fill 4, >(OFF_SCR + bu_row.get(i)*40 + bu_col.get(i))
+
 .import source "game.asm"
 .import source "hud.asm"
 .import source "phone.asm"
@@ -2498,7 +2548,7 @@ fan_sh:     .fill 5, >(OFF_SCR + (11+i)*40 + fan_col.get(i))
 fan_n8:     .fill 5, fan_cnt.get(i)*8
 fan_n1:     .fill 5, fan_cnt.get(i)
 
-js_layer:   .byte LAY_TITLE, LAY_CAM, LAY_TITLE, LAY_TITLE     // Freddy, Bonnie, Chica, Foxy
+js_layer:   .byte LAY_TITLE, LAY_TITLE, LAY_TITLE, LAY_TITLE   // Freddy, Bonnie, Chica, Foxy (all hires)
 ptime_tab:  .byte 50, 100, 150, 200
 grp_start:  .byte 0,3,5,6,8,9,10
 grp_len:    .byte 3,2,1,2,1,1,1
@@ -2508,13 +2558,6 @@ evdoor:     .byte EV_LD, EV_RD
 //             A    S    K    L   SPC   1    2    3    4    5    6    7   CRSR LSH  RSH
 kcol:       .byte $fd,$fd,$ef,$df,$7f,$7f,$7f,$fd,$fd,$fb,$fb,$f7,$fe,$fd,$bf,$ef
 krow:       .byte $04,$20,$20,$04,$10,$01,$08,$01,$08,$01,$08,$01,$04,$80,$10,$10
-
-// sprites: 0 L door ring, 1 L light ring, 2 R door ring, 3 R light ring, 4-7 lit overlays
-spr_x:      .byte 90,90,255,255,90,90,255,255
-spr_y:      .byte 108,136,108,136,108,136,108,136
-spr_col:    .byte 15,15,15,15,2,7,2,7
-ptr_office: .byte SPR_PTR+0,SPR_PTR+1,SPR_PTR+2,SPR_PTR+3,SPR_PTR+4,SPR_PTR+5,SPR_PTR+6,SPR_PTR+7
-ptr_cam:    .byte SPR_PTR+8,SPR_PTR+8,SPR_PTR+8,SPR_PTR+8,SPR_PTR+8,SPR_PTR+8,SPR_PTR+8,SPR_PTR+8
 
 // patch addressing
 sbase_lo:   .byte <PATCHES, <(PATCHES+SIDE_SZ)

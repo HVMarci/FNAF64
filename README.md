@@ -124,7 +124,7 @@ The office is one bitmap. The door and light artwork are cut out into small **pa
 row-by-row sweep of the closed patch over the open one with a hazard-stripe edge that follows
 the sweep; opening runs it backwards; lights swap a patch variant. The main loop does the
 copying (`DoorStep`, `LightRender`), the frame IRQ only advances the logic.
-Door and window are separate cell ranges of each patch: the door follows the door state, the window follows the light alone, so a lit window shows through even with the door shut. Buttons are sprites (ring + lit overlay). Extras: door-slam **screen shake** (`$d011` scroll),
+Door and window are separate cell ranges of each patch: the door follows the door state, the window follows the light alone, so a lit window shows through even with the door shut. The door and light **buttons are part of the office pictures** (green door button = closed, white light button = lit): each is two cells in the column beside the door patches, kept as an off and a lit variant after the patches (144 bytes) and redrawn by `ButtonRender` whenever the door or light state changes, so the office needs no sprites. Extras: door-slam **screen shake** (`$d011` scroll),
 a flashing ceiling lamp (three brightness levels, colour cells) and a **spinning desk fan** (four prepared frames of
 sweeping dithered blades, redrawn every third frame by `FanStep`), light flicker.
 
@@ -135,7 +135,7 @@ Each camera picture is converted to a multicolor bitmap with the camera title an
 bundle **per picture** (31 in total, e.g. the stage has five: all three / no Bonnie / no Chica / only
 Freddy / empty); `WantFrame` in `src/game.asm` picks the picture from the animatronic positions, and when
 something moves in the room you are watching the feed breaks up and the new picture streams in.
-`REC` is a blinking sprite.
+`REC` is a blinking sprite (the only sprite of the game).
 
 The **live HUD** (power, usage bars, clock, night) is plotted at run time by `src/hud.asm`: the 64 uppercase
 glyphs are copied from the character ROM at start-up and written straight into the bitmaps – one cell per
@@ -178,9 +178,8 @@ title → (night 1 only: static → newspaper "HELP WANTED", 5 s or SPACE) → s
    6 AM → "5 AM" rolls up and the "6" rolls in from below + chime → (newspaper after night 5, ending card after night 6) → title, next night
 ```
 The 12 AM card is on screen while the office bundle is (re)loaded, which also resets the office picture,
-patches and sprites. The dark-office pictures for the power outage replace the office bitmap the same way.
-Bonnie and Freddy have no jumpscare art in `assets/`, so they are made from the existing pictures
-(`gen_jumpscares` in `tools/gen_assets.py`): the supply-closet close-up and the title-screen face, each plus a 2x zoom.
+patches and buttons. The dark-office pictures for the power outage replace the office bitmap the same way.
+All four jumpscares are two hires pictures each (`assets/jumpscare/<who>/1.png`, `2.png`, converted by `gen_jumpscares` in `tools/gen_assets.py`).
 
 ### Sound
 The tunes are plucked (attack/decay envelope, gate off between notes): a pulse-wave bell for the 6 AM chime and a
@@ -201,13 +200,13 @@ pots and pans, groan, Foxy's knocks.
 segment); this is its summary. Bank 2 is never displayed, so it holds plain data and the bulk of the code.
 ```
 $0160-$03ff Sparkle resident code + buffer
-$0400 office colours   $0800 sprites   $0a40 fan frames   $0c00 tables   $0d00 font copy   $0f00 game variables
+$0400 office colours   $0800 sprite (REC)   $0a40 fan frames   $0c00 tables   $0d00 font copy   $0f00 game variables
 $1000 Code1 (IRQ engine, display, door animation; ~80 bytes spare)   $2000 office bitmap
-$4000 camera colours   $4400 Code4 (tables/strings; $47c0 subtitle colours)   $4800 sprites   $4a40 phone text
+$4000 camera colours   $4400 Code4 (tables/strings; $47c0 subtitle colours)   $4800 sprite (REC)   $4a40 phone text
 $4c00 Code2 (state machine, AI, HUD, phone)   $6000 camera bitmap ($7e00 subtitle pixels)
-$8000-$ac4b door/light patches (11340 bytes)
+$8000-$acdb door/light patches (11340 bytes) + button cells (144 bytes)
 $ad00-$bcff Code3 (sound, pause, save, tables, test harness; ~3 KB spare)   $bd00 save page   $be40 fan frames
-$c000.. noise/bar screens (also under I/O), $c800 sprites, $e000 noise bitmap
+$c000.. noise/bar screens (also under I/O), $c800 sprite (REC), $e000 noise bitmap
 ```
 `tools/check_layout.py` runs on every build and fails if anything that lives in RAM at the same time overlaps; the
 region list lives in `tools/layout.py`. **Where new code goes:** Code3 is the spare segment (`.segment Code3`
@@ -269,7 +268,6 @@ screenshots to look at (random static and disk timing make pixel-exact compariso
 
 ## Known limitations / next steps
 * Camera switch ≈ 1 s (1541 random access + decompression); more RAM would allow caching pictures.
-* Bonnie's and Freddy's jumpscares are improvised from existing art (no jumpscare pictures were supplied).
 * Not implemented: Golden Freddy, a custom night with adjustable levels (night 7 is the fixed 20/20/20/20 one), real speech for the phone calls, score, animatronic art *inside* the office besides Bonnie / Chica in the
   hall-light windows.
 * Some details are simplified: Foxy's aggravation level, the exact camera-glitch timings, Freddy's stage-by-stage

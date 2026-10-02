@@ -684,6 +684,7 @@ NewNight:
         bpl !-
         sta wdrawn
         sta wdrawn+1
+        sta bdrawn
         sta lamp_cur
         sta shake
         sta forcedown
@@ -789,6 +790,7 @@ StartPowerOut:
         bpl !-
         sta wdrawn
         sta wdrawn+1
+        sta bdrawn
         sta adoor
         sta adoor+1
         lda #SFX_POWER
