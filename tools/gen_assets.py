@@ -345,7 +345,7 @@ def preview_office(normal):
 
 def gen_lamp(normal):
     """Colour cells (screen RAM bytes) of the ceiling lamp: normal, dimmed and nearly dark variants."""
-    maps = [{}, {1: 10, 10: 2}, {1: 2, 10: 9, 2: 9}]
+    maps = [{}, {1: 10, 10: 2, 8: 9}, {1: 2, 10: 9, 2: 9, 8: 0}]    # the outer orange rim darkens with the inner parts
     out = bytearray()
     for m in maps:
         for r in range(5):
