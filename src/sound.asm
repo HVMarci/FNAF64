@@ -16,6 +16,7 @@
 .label scr_fl     = sndvars+11  // the scream's pitch (voices 1 and 2), gliding
 .label scr_fh     = sndvars+12
 .label scr_tmp    = sndvars+13
+.label scr_t2     = sndvars+14
 
 SndInit:
         ldx #24
@@ -485,7 +486,7 @@ buzz_fl:    .byte $a7, $b9
 SndScream:
         lda #SFX_SCREAM
         jsr SndStart            // voice 3: noise
-        lda #$f7                // all three voices through the filter, resonance 15
+        lda #$f4                // only the noise (voice 3) through the filter, resonance 15: voices 1 and 2 bypass it (loudness)
         sta $d417
         lda #$4f                // band-pass, volume 15
         sta $d418
@@ -500,11 +501,15 @@ SndScream:
         lda #$fd
         sta $d406
         sta $d40d
-        lda #$05                // voice 2: 31 % pulse
+        lda #$00                // voices 1 and 2: square waves
+        sta $d402
+        sta $d409
+        lda #$08
+        sta $d403
         sta $d40a
-        lda #$20
+        lda #$40
         sta $d404
-        lda #$21                // voice 1: sawtooth
+        lda #$41
         sta $d404
         lda #$40
         sta $d40b
@@ -526,10 +531,11 @@ ScreamTick:                     // the pitch rises for 0.8 s, sinks slowly until
         ldx #<-16
         cmp #SCR_LEN-104
         bne sc_add
-        lda #$20                // 2.1 s: release voices 1 and 2
+        lda #$40                // 2.1 s: release all three voices
         sta $d404
-        lda #$40
         sta $d40b
+        lda #$20
+        sta $d412
 sc_add: ldy #0
         txa
         bpl !+
@@ -540,23 +546,60 @@ sc_add: ldy #0
         tya
         adc scr_fh
         sta scr_fh
-        jsr Random              // voice 1: the pitch + up to 1 % jitter
+        jsr Random              // voice 1: unfiltered square on the 4th harmonic, jittering by up to 1 %
         and #$7f
         clc
         adc scr_fl
-        sta $d400
+        sta scr_tmp
         lda scr_fh
         adc #0
+        asl scr_tmp             // x4
+        rol
+        asl scr_tmp
+        rol
         sta $d401
-        jsr Random              // voice 2: about 0.6 % higher, jittering separately and twice as much
-        and #$7f
+        lda scr_tmp
+        sta $d400
+        jsr Random              // voice 2: unfiltered square on the 3rd harmonic (where the clip is loudest), jittering separately
+        and #$3f
         clc
-        adc #$20
         adc scr_fl
-        sta $d407
+        sta scr_tmp
         lda scr_fh
         adc #0
+        sta scr_t2
+        lda scr_tmp             // x3
+        asl
+        tax
+        lda scr_t2
+        rol
+        tay
+        txa
+        clc
+        adc scr_tmp
+        sta $d407
+        tya
+        adc scr_t2
         sta $d408
+        lda scream_t            // voice 3: after the hiss (1.3 s) a filtered sawtooth on the pitch itself: the buzz
+        cmp #SCR_LEN-65
+        bcc !+
+        bne sc_nv3
+        lda #0
+        sta $d413
+        lda #$fd
+        sta $d414
+        lda #$21
+        sta $d412
+!:      jsr Random
+        and #$7f
+        clc
+        adc scr_fl
+        sta $d40e
+        lda scr_fh
+        adc #0
+        sta $d40f
+sc_nv3:
         jsr Random              // the cutoff follows the pitch and wanders over the 3rd-5th harmonics
         and #$0f
         sta scr_tmp
