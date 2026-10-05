@@ -103,14 +103,12 @@ CAMS = [
 ]
 
 # The camera map (assets/map.png, 320x200, only the map is drawn) is baked into every camera picture: bottom right,
-# on a black plate, with the button of the selected camera lit up. Buttons are 5x7 multicolor pixels; top-left corners
+# straight onto the picture (no plate), with the button of the selected camera lit up. Buttons are 5x7 multicolor pixels; top-left corners
 # in the map image (multicolor pixels, same order as CAMS).
 MAP_BTN_W, MAP_BTN_H = 5, 7
 MAP_BTNS = [(64, 138), (62, 148), (59, 158), (62, 172), (62, 180), (52, 172), (79, 172), (79, 180),
             (52, 143), (93, 172), (93, 148)]
 MAP_DX, MAP_DY = 55, -4              # where the map image goes in the camera picture (multicolor pixels)
-PANEL_COL0, PANEL_ROW0 = 26, 16      # black plate under the map (cell coordinates)
-PANEL_COLS, PANEL_ROWS = 13, 8
 
 
 def draw_plate(cv, col0, row0, cols, rows, color=0):
@@ -136,19 +134,17 @@ def hud_overlay(cv, camidx):
     cols = len(label)
     draw_plate(cv, 1, 1, cols + 1, 1, 0)
     draw_text(cv, 1 * 4 + 1, 1 * 8 + 1, label, 1)
-    # the map on its plate
-    draw_plate(cv, PANEL_COL0, PANEL_ROW0, PANEL_COLS, PANEL_ROWS, 0)
+    # the map, drawn over the camera picture
     m = [row[:] for row in MAP_IDX]
     bx, by = MAP_BTNS[camidx]
     for y in range(by, by + MAP_BTN_H):         # selected: green button, black key label
         for x in range(bx, bx + MAP_BTN_W):
-            m[y][x] = {11: 5, 15: 0}.get(m[y][x], m[y][x])
+            m[y][x] = {11: 5, 1: 0}.get(m[y][x], m[y][x])
     for y in range(200):
         for x in range(160):
             c = m[y][x]
             ty, tx = y + MAP_DY, x + MAP_DX
             if c and 0 <= ty < 200 and 0 <= tx < 160:
-                assert PANEL_COL0 * 4 <= tx < (PANEL_COL0 + PANEL_COLS) * 4 and PANEL_ROW0 * 8 <= ty < (PANEL_ROW0 + PANEL_ROWS) * 8
                 cv[ty][tx] = c
 
 
