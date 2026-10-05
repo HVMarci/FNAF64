@@ -453,15 +453,25 @@ TITLE_KEYS = [
 ]
 
 
-def gen_title():
-    idx = load_indexed(os.path.join(ASSETS, "lobby.png"))
+HEAD_X = 144        # Freddy's head starts right of this column (the text ends at x=133, the head begins at x=151)
+HEAD_SHIFT = 8      # the glitched title copy has everything right of HEAD_X moved this many pixels to the right (a whole cell keeps the 2-colour cells valid)
+
+
+def title_overlay(idx):
     hires_plate(idx, 8, 168, 4 * 24, 32)
     for text, y in TITLE_KEYS:
         hires_text(idx, 8, y, text, 15, sx=1, sy=1)
-    b, s = hires_convert(idx)
-    open(os.path.join(OUT, "title.bmp"), "wb").write(b)
-    open(os.path.join(OUT, "title.scr"), "wb").write(s)
-    render_hires(b, s).resize((640, 400), Image.NEAREST).save(os.path.join(OUT, "prev_title.png"))
+
+
+def gen_title():
+    idx = load_indexed(os.path.join(ASSETS, "lobby.png"))
+    shifted = [row[:HEAD_X] + [row[HEAD_X]] * HEAD_SHIFT + row[HEAD_X:320 - HEAD_SHIFT] for row in idx]
+    for name, im in (("title", idx), ("title_h", shifted)):
+        title_overlay(im)
+        b, s = hires_convert(im)
+        open(os.path.join(OUT, name + ".bmp"), "wb").write(b)
+        open(os.path.join(OUT, name + ".scr"), "wb").write(s)
+        render_hires(b, s).resize((640, 400), Image.NEAREST).save(os.path.join(OUT, "prev_" + name + ".png"))
 
 
 # ------------------------------------------------------------ jumpscares

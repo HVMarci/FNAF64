@@ -164,6 +164,8 @@ InitState:
         sta sprmode
         lda #LAY_OFFICE
 #else
+        lda #DI_TITLEH          // the title's glitch copy replaces the office picture while the title is up
+        jsr Sparkle_LoadA
 #if TEST
 #if !SAVETEST
         lda #NIGHTS             // every night selectable in test builds (SAVETEST: use what the disk says)
@@ -1408,12 +1410,14 @@ ScareShow:                      // Foxy's picture (hires, camera buffer), no eff
         lda #LAY_TITLE
         jmp SetAll
 
-TitleGlitch:                    // per-row jitter and static blips over the title picture
+TitleGlitch:                    // per row: Freddy's head shaken sideways (the row shows the shifted title copy) and static blips
         ldx #24
 tg_lp:  jsr Random
-        and #7
-        sta rowxs,x
-        jsr Random
+        and #1
+        beq !+
+        lda #LAY_OFFICE         // the shifted title copy sits in the office buffer
+        sta rowlayer,x
+!:      jsr Random
         cmp #14
         bcs tg_nx
         lda #LAY_NOISE
@@ -2052,8 +2056,14 @@ mw:     lda frame
         cmp lastf
         beq mw
         sta lastf
-        lda mode
+        lda mode                // the office buffer holds jumpscare frame 1 / the shifted title: no door, light and button drawing
         cmp #M_SCARE
+        beq mw_scare
+        cmp #M_TITLE
+        beq mw_scare
+        cmp #M_OVER
+        beq mw_scare
+        cmp #M_TOTITLE
         beq mw_scare
         ldx #0
         jsr DoorStep
@@ -2115,6 +2125,8 @@ mj_load:
         sta hud_dirty           // fresh office bitmap: HUD needs drawing
 !:      cmp #DI_TITLE
         bne mj_done
+        lda #DI_TITLEH          // the shifted copy for the glitch (office buffer), then the texts into both pictures
+        jsr Sparkle_LoadA
         jsr DrawTitleTxt
 mj_done:
         lda #0

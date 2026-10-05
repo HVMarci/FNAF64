@@ -795,11 +795,14 @@ dc_over:
         jmp DrawBig
 
 // "NIGHT n" on the title picture
-DrawTitleTxt:
+DrawTitleTxt:                   // into the title (camera buffer) and its shifted glitch copy (office buffer)
         lda #>CAM_BMP
-        sta tbmp_hi
-        lda #>CAM_SCR
-        sta tscr_hi
+        ldx #>CAM_SCR
+        jsr dtt_at
+        lda #>OFF_BMP
+        ldx #>OFF_SCR
+dtt_at: sta tbmp_hi
+        stx tscr_hi
         lda #$10
         sta hcol
         :SetStr(str_night)

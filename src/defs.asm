@@ -289,6 +289,7 @@
 .const DI_DARK      = $48
 .const DI_DARKF     = $49
 .const DI_NEWS      = $4a
+.const DI_TITLEH    = $4b       // the title with only Freddy's head shifted (office buffer)
 .const DI_SAVER     = $7e       // Sparkle hi-score saver plugin
 .const DI_SAVEFILE  = $7f       // the hi-score file: one page, loaded to SAVE_BUF at boot
 .const SAVE_BUF     = $bd00
