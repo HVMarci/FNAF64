@@ -36,8 +36,18 @@ Start:
         lda #$3c                // VIC bank 0 via $dd02 (Sparkle friendly)
         sta $dd02
 
-        jsr Sparkle_LoadNext    // bundle 1: title screen (hires, camera buffer)
-        lda #$3d                // show it: bank 1
+#if !TEST
+        lda $dc0f               // the CIA1 time-of-day clock times the disclaimer (it runs while the loader works)
+        and #$7f                // writes set the clock, not the alarm
+        sta $dc0f
+        lda #0
+        sta $dc0b               // hours: stops the clock
+        sta $dc0a
+        sta $dc09
+        sta $dc08               // tenths: starts it
+#endif
+        jsr Sparkle_LoadNext    // bundle 1: the disclaimer (hires, bank 3: screen $c000, bitmap $e000 - built over by InitNoise later)
+        lda #$3f                // show it: bank 3
         sta $dd02
         lda #$08
         sta $d018
@@ -45,9 +55,29 @@ Start:
         lda #$3b
         sta $d011
 
-        jsr Sparkle_LoadNext    // bundle 2: office bitmap, patches, sprites
+        jsr Sparkle_LoadNext    // bundle 2: title screen (hires, camera buffer), loads behind the disclaimer
+        jsr Sparkle_LoadNext    // bundle 3: office bitmap, patches, sprites
         lda #DI_SAVEFILE        // the save page (the reached night), ApplySave reads it in InitState
         jsr Sparkle_LoadA
+#if !TEST
+        ldx #0                  // keep the disclaimer up for DISC_SECS seconds in all (the fail-safe loop ends it even if the clock does not run)
+        ldy #0
+        lda #10
+        sta zt
+!:      lda $dc09               // seconds (BCD, the clock started at 0)
+        cmp #DISC_SECS
+        bcs !+
+        dex
+        bne !-
+        dey
+        bne !-
+        dec zt
+        bne !-
+!:
+#endif
+DiscDone:
+        lda #$3d                // the title screen: bank 1
+        sta $dd02
 
         jsr InitState
         jsr InitFont

@@ -55,6 +55,8 @@ FONT = {
     '8': ["111", "101", "111", "101", "111"],
     '9': ["111", "101", "111", "001", "110"],
     '.': ["000", "000", "000", "000", "010"],
+    ',': ["000", "000", "000", "010", "100"],
+    '!': ["010", "010", "010", "000", "010"],
     '-': ["000", "000", "111", "000", "000"],
     ':': ["000", "010", "000", "010", "000"],
     "'": ["010", "010", "000", "000", "000"],
@@ -507,6 +509,39 @@ def title_overlay(idx):
         hires_text(idx, 8, y, text, 15, sx=1, sy=1)
 
 
+# The disclaimer shown while the game loads (hires, black with white / coloured text; every cell keeps one text colour).
+# (text, y, scale, colour): centred; a text of None draws a rule.
+DISCLAIMER = [
+    ("DISCLAIMER", 8, 3, 10),
+    (None, 30, 1, 11),
+    ("THIS IS A FAN-MADE FUN PROJECT.", 38, 2, 1),
+    ("IT IS NOT CONNECTED TO THE", 52, 2, 1),
+    ("ORIGINAL GAME IN ANY WAY.", 66, 2, 1),
+    ("ALL RIGHTS TO FIVE NIGHTS AT", 80, 2, 1),
+    ("FREDDY'S BELONG TO ITS CREATOR,", 94, 2, 1),
+    ("SCOTT CAWTHON.", 108, 2, 1),
+    (None, 124, 1, 11),
+    ("WARNING!", 134, 3, 7),
+    ("THIS GAME CAN CONTAIN FLASHING", 156, 2, 7),
+    ("LIGHTS AND JUMPSCARES, JUST LIKE", 170, 2, 7),
+    ("IN THE ORIGINAL GAME.", 184, 2, 7),
+]
+
+
+def gen_disclaimer():
+    idx = [[0] * 320 for _ in range(200)]
+    for text, y, sc, col in DISCLAIMER:
+        if text is None:
+            for yy in range(y, y + 2):
+                for xx in range(16, 304):
+                    idx[yy][xx] = col
+            continue
+        w = (len(text) * 4 - 1) * sc
+        assert w <= 320, text
+        hires_text(idx, (320 - w) // 2, y, text, col, sx=sc, sy=sc)
+    write_hires("disclaimer", idx).resize((640, 400), Image.NEAREST).save(os.path.join(OUT, "prev_disclaimer.png"))
+
+
 def gen_title():
     idx = load_indexed(os.path.join(ASSETS, "lobby.png"))
     shifted = [row[:HEAD_X] + [row[HEAD_X]] * HEAD_SHIFT + row[HEAD_X:320 - HEAD_SHIFT] for row in idx]
@@ -629,6 +664,7 @@ if __name__ == "__main__":
     gen_news()
     gen_phone()
     gen_title()
+    gen_disclaimer()
     normal = gen_office()
     gen_lamp(normal)
     gen_fan(normal)

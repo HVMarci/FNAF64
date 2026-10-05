@@ -19,6 +19,7 @@ movement rules of the original, jumpscares, power outages, and six nights.
 * **Phone Guy**: an automatic call at the start of nights 1–5 – phone ring, subtitles and a synthesised
   mumble instead of speech (`M` mutes it),
 * SID sound effects, background hum, Freddy's music box and the 6 AM chime,
+* a **disclaimer screen** at boot (fan project, not connected to the original game, rights belong to Scott Cawthon; warns about flashing lights and jumpscares). It sits in bank 3 (`$c000` / `$e000`, free until `InitNoise` builds the noise screens there) and stays up while the title and the office assets load, for at least 6 s (timed with the CIA1 TOD clock; test builds skip the wait),
 * a title screen (from `assets/lobby.png`) with night selection, and the **newspaper** (`assets/newspaper.png`) before the first night as in the original (SPACE skips it),
 * **night 7, the 20/20/20/20 custom night** (unlocked by beating night 6) and a **pause** key (`P`),
 * **saving to disk**: the reached night is written to the `.d64` after every night you beat, so the next start offers it again.

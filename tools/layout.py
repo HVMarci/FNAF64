@@ -26,7 +26,7 @@ FIXED = [
     ("noise bitmap (bank 3)", 0xe000, 0x10000),
 ]
 CODE_FILES = ("code1.prg", "code2.prg", "code3.prg", "code4.prg")
-TRANSIENT_BUNDLES = ("camera", "title", "jumpscare", "newspaper", "phone")
+TRANSIENT_BUNDLES = ("camera", "title", "jumpscare", "newspaper", "phone", "disclaimer")
 
 
 def prg(path):

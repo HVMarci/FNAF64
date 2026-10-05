@@ -288,6 +288,7 @@
 // dir indices of the non-camera bundles
 .const DI_OFFICE    = $0e
 .const DI_TITLE     = $0f
+.const DISC_SECS    = 6         // the disclaimer stays up at least this many seconds (BCD, below 10)
 .const DI_JS        = $40
 .const DI_DARK      = $48
 .const DI_DARKF     = $49
