@@ -1266,10 +1266,9 @@ PowerSteps:
 !:      rts
 
 .segment Code3                  // (Code1 and Code2 are nearly full)
-// ---- jumpscare. Frame 0 loads into the camera buffer while the office stays on screen (a power-out blackout stays black),
-// then the screen goes black while frame 1 loads. Freddy / Bonnie / Chica then flip between the two pictures every 5 frames
-// (0.1 s) for 10 flips (1 s) and cut to static; frame 1 sits in the office buffer, so nothing loads between flips.
-// Foxy still uses the old sequence: show frame 0 (40 frames), black while frame 1 loads, show it (60 frames), static.
+// ---- jumpscare. Frame 0 loads into the camera buffer while the office stays on screen (a power-out blackout stays black).
+// Then frame 0 is shown (the scream starts) while frame 1 loads into the office buffer; the two pictures then flip every 5 frames
+// (0.1 s) for 10 flips (1 s), all the time shaking, and it cuts to static. Nothing loads between the flips.
 sm_scare:
         lda #0
         sta sprmode
@@ -1281,11 +1280,7 @@ sm_scare:
         beq sn_flip
         cmp #6
         beq sn_load2
-        ldx g_who
-        cpx #3
-        bne !+
-        jmp sx_old
-!:      lda #LAY_OFFICE         // phase 0: frame 0 loads, the office stays up
+        lda #LAY_OFFICE         // phase 0: frame 0 loads, the office stays up
         jsr SetAll
         lda tcnt
         bne sn_0b
@@ -1304,9 +1299,13 @@ sn_0b:  inc tcnt
         sta sc_ph
         lda #0
         sta tcnt
+        jmp SndScream           // the first picture appears: scream
 sn_ret: rts
-sn_load2:                       // phase 6: black while frame 1 loads (into the office buffer)
-        jsr ScareBlank
+sn_load2:                       // phase 6: frame 0 is shown (shaking) while frame 1 loads into the office buffer
+        lda #0
+        sta blank               // display on (a power-out blackout ends here)
+        lda #LAY_TITLE
+        jsr ScareJolt
         lda tcnt
         bne sn_2b
         lda g_who
@@ -1325,16 +1324,13 @@ sn_2b:  inc tcnt
         lda #0
         sta tcnt
         sta tph                 // flips done
-        lda #SFX_SCREAM         // the scream starts with the picture
-        jmp SndStart
+        rts
 sn_flip:
-        lda #0
-        sta blank               // display on
         lda tph
         and #1
         tax
         lda js_flip,x
-        jsr SetAll
+        jsr ScareJolt
         inc tcnt
         lda tcnt
         cmp #5
@@ -1350,79 +1346,14 @@ sn_flip:
         lda #0
         sta tcnt
         rts
-sx_old: lda sc_ph
-        bne sx_p1
-        lda #LAY_OFFICE         // the office stays up while frame 0 loads
-        jsr SetAll
-        lda tcnt
-        bne sx_0b
-        lda g_who
-        asl
-        clc
-        adc #DI_JS
-        jsr ReqLoad
-sx_0b:  inc tcnt
-        lda tcnt
-        cmp #4
-        bcc sx_ret
-        lda mbusy
-        bne sx_ret
-        lda #1
-        sta sc_ph
-        lda #0
-        sta tcnt
-sx_ret: rts
-sx_p1:  cmp #1
-        bne sx_p2
-        jsr ScareShow
-        inc tcnt
-        lda tcnt
-        cmp #40
-        bcc sx_ret
-        lda #2
-        sta sc_ph
-        lda #0
-        sta tcnt
-        rts
-sx_p2:  cmp #2
-        bne sx_p3
-        jsr ScareBlank
-        lda tcnt
-        bne sx_2b
-        lda g_who
-        asl
-        clc
-        adc #DI_JS+1
-        jsr ReqLoad
-sx_2b:  inc tcnt
-        lda tcnt
-        cmp #4
-        bcc sx_ret
-        lda mbusy
-        bne sx_ret
-        lda #3
-        sta sc_ph
-        lda #0
-        sta tcnt
-        rts
-sx_p3:  cmp #3
-        bne sx_p4
-        jsr ScareShow
-        inc tcnt
-        lda tcnt
-        cmp #60
-        bcc sx_ret
-        lda #4
-        sta sc_ph
-        lda #0
-        sta tcnt
-        rts
-sx_p4:  lda #LAY_NOISE
+sx_p4:  lda #0
+        sta jshake
+        lda #LAY_NOISE
         jsr SetAll
         inc tcnt
         lda tcnt
         cmp #12
-        bcc sx_ret
+        bcc sn_ret
         lda #M_OVER
         sta mode
         lda #0
@@ -1430,19 +1361,19 @@ sx_p4:  lda #LAY_NOISE
         sta tcnt
         rts
 
-.segment Code2
-ScareShow:                      // Foxy's picture (hires, camera buffer), no effects
-        lda #0
-        sta blank               // display on
-        lda #LAY_TITLE
-        jmp SetAll
-
-ScareBlank:                     // black screen while the jumpscare pictures load (no static before the scare)
+ScareJolt:                      // A = layer for every row, shifted sideways by a random 0-7 pixels; ShakeUpdate adds the vertical shake
+        jsr SetAll
         lda #1
-        sta blank
-        lda #LAY_TITLE
-        jmp SetAll
+        sta jshake
+        jsr Random
+        and #7
+        ldx #24
+!:      sta rowxs,x
+        dex
+        bpl !-
+        rts
 
+.segment Code2
 TitleGlitch:                    // per row: Freddy's head shaken sideways (the row shows the shifted title copy) and static blips
         ldx #24
 tg_lp:  jsr Random
@@ -1833,7 +1764,8 @@ bt_nn:  dex
 bt_u:   lda rowlayer,x
         cmp rowlayer
         bne bt_chain
-        lda rowxs,x
+        lda rowxs,x             // (all rows equal: one set of registers, also with a sideways shift)
+        cmp rowxs
         bne bt_chain
         dex
         bpl bt_u
@@ -2007,7 +1939,14 @@ ShakeUpdate:
         rts
 su_norm:
         lda #$3b
-        ldx blank
+        ldx jshake
+        beq su_nj
+        ldx chain_on
+        bne su_nj
+        jsr Random              // jumpscare: vertical scroll 0-7
+        and #7
+        ora #$38
+su_nj:  ldx blank
         beq !+
         lda #$2b                // display off (power outage darkness)
 !:      sta $d011

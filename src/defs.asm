@@ -203,6 +203,7 @@
 .label g_night      = gv+0      // 1..7
 .label g_maxnight   = gv+1
 .label g_savereq    = gv+240    // 1: write the reached night to the disk before the next load
+.label jshake       = gv+241    // 1: the jumpscare shakes the screen vertically (ShakeUpdate)
 .label g_act        = gv+2      // 1 while the night clock and the animatronics run
 .label g_hour       = gv+3      // 0 (12 AM) .. 6
 .label g_hds        = gv+4      // 2 bytes: deciseconds left in this hour

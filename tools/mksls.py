@@ -48,12 +48,12 @@ for i in range(len(CAMS)):
         L.append("File:\t\"gen/cam_%02d_%d.col\"\td800" % (i, f))
         L.append("")
         gid += 1
-for who in range(4):            # frame 0 loads into the camera buffer while the office is still shown; frame 1 of Freddy / Bonnie / Chica into the
-    for f in range(2):          # office buffer (hidden behind black; reloaded when the next night starts), so the game can then flip between them
-        L.append("<< jumpscare %d frame %d%s >>" % (who, f, " (office buffer)" if f and who < 3 else ""))
+for who in range(4):            # frame 0 loads into the camera buffer while the office is still shown; frame 1 into the office buffer
+    for f in range(2):          # (the shown frame 0 hides it; reloaded when the next night starts), so the game can then flip between them
+        L.append("<< jumpscare %d frame %d%s >>" % (who, f, " (office buffer)" if f else ""))
         L.append("DirIndex:\t%02x" % (0x40 + who * 2 + f))
-        L.append("File:\t\"gen/js_%d_%d.bmp\"\t%s" % (who, f, "2000" if f and who < 3 else "6000"))
-        L.append("File:\t\"gen/js_%d_%d.scr\"\t%s" % (who, f, "0400" if f and who < 3 else "4000"))
+        L.append("File:\t\"gen/js_%d_%d.bmp\"\t%s" % (who, f, "2000" if f else "6000"))
+        L.append("File:\t\"gen/js_%d_%d.scr\"\t%s" % (who, f, "0400" if f else "4000"))
         L.append("")
 for n, (fn, di) in enumerate((("dark", 0x48), ("darkfreddy", 0x49))):
     L.append("<< %s office >>" % fn)

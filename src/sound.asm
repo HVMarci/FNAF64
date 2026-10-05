@@ -12,6 +12,7 @@
 .label amb2_want  = sndvars+7
 .label kit_ring   = sndvars+8   // ring-modulated kitchen hit: voice 2 is its modulator (1), or the noise clack still plays (2, 3)
 .label kit_q      = sndvars+9
+.label scream_t   = sndvars+10  // frames left of the jumpscare scream (it owns all three voices)
 
 SndInit:
         ldx #24
@@ -107,7 +108,18 @@ SndTick:
         and #$fe
         sta $d412
 st_amb:
-        lda mel_id
+        lda scream_t
+        beq st_am0
+        lda frame               // wail: voice 1 wobbles
+        and #$0f
+        asl
+        adc #$58
+        sta $d401
+        dec scream_t
+        bne st_sr
+        jmp ScreamEnd
+st_sr:  rts
+st_am0: lda mel_id
         beq st_nomel
         jmp MelTick
 st_nomel:
@@ -431,7 +443,7 @@ sfx_tab:
         .byte $41, $00, $f0, 18
         // 8 scream: long harsh noise
         .word $2800, $0030
-        .byte $81, $00, $f0, 110
+        .byte $81, $00, $f0, 150
         // 9 power down: falling saw
         .word $3800, $ff70
         .byte $21, $0a, $f8, 60
@@ -468,3 +480,54 @@ amb_sr:     .byte $00, $70, $40
 amb_fl:     .byte $00, $a7, $00
 amb_fh:     .byte $00, $06, $30
 buzz_fl:    .byte $a7, $b9
+
+// ---- jumpscare scream: as loud as the SID goes. Voice 3 noise (the effect), voice 2 noise and voice 1 a shrill sawtooth, all at
+// full sustain and nothing routed through the filter; the ambient sounds stay off until ScreamEnd.
+.segment Code3
+SndScream:
+        lda #SFX_SCREAM
+        jsr SndStart
+        lda #0
+        sta $d417               // no filtered voice
+        sta $d40c               // voice 2: noise, no attack, full sustain
+        lda #$f0
+        sta $d40d
+        lda #0
+        sta $d407
+        lda #$40
+        sta $d408
+        lda #$80
+        sta $d40b
+        lda #$81
+        sta $d40b
+        lda #0                  // voice 1: sawtooth
+        sta $d405
+        lda #$f0
+        sta $d406
+        lda #0
+        sta $d400
+        lda #$64
+        sta $d401
+        lda #$20
+        sta $d404
+        lda #$21
+        sta $d404
+        lda #150
+        sta scream_t
+        rts
+
+ScreamEnd:                      // back to the fan hum (voice 1, filtered) and the ambient voice 2
+        lda #$01
+        sta $d417
+        lda #0
+        sta $d400
+        sta $d405
+        lda #$0c
+        sta $d401
+        lda #$40
+        sta $d406
+        lda #$81
+        sta $d404
+        lda #$ff
+        sta amb2_cur
+        rts
