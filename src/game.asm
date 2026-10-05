@@ -490,16 +490,21 @@ ae_fox: lda ai_pos+3
         bne ae_fr
         lda fx_seen             // sprint noticed on camera 2A: he is much faster
         bne ae_run
-        lda mode
-        cmp #M_CAM
-        bne ae_run
         lda cam_cur
         cmp #3
         bne ae_run
+        lda mode                // watching the hall, or the monitor is on its way up / the picture loads
+        cmp #M_CAM
+        beq ae_look
+        cmp #M_UP
+        beq ae_look
+        cmp #M_SWITCH
+        bne ae_run
+ae_look:
         lda #1
         sta fx_seen
         sta camdirty
-        lda #40                 // 4 s: the picture loads, he stands for a moment and runs out of it (foxyrun.asm holds this timer meanwhile)
+        lda #100                // 10 s: the picture and the steps load, then he runs (foxyrun.asm holds this timer meanwhile)
         sta fx_run
         lda #SFX_STEP
         jsr SndStart
@@ -685,9 +690,7 @@ wf_cove:
 wf_2a:  lda ai_pos+3
         cmp #3
         bne !+
-        lda fx_seen             // Foxy running at the camera (the third picture of 2A)
-        beq !+
-        lda #2
+        lda #2                  // Foxy sprints: the run (foxyrun.asm) starts at once, the empty hall is never shown first
         jmp wf_done
 !:      lda ai_pos+1
         cmp #3

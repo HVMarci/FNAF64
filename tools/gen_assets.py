@@ -157,40 +157,119 @@ def kitchen_canvas():
     return cv
 
 
-# Camera 2A (west hall) has one more picture than the PNGs in its directory: Foxy sprinting at the camera, the hall (1.png)
-# with assets/camera/left_hallway/foxy.png (a cut-out with transparency, any size) scaled and pasted in. The game shows it while
-# Foxy runs and the player watches the hall. Frame index = number of numbered PNGs.
-FOXY_RUN_PALETTE = [0, 1, 2, 8, 11, 12, 15]         # the colours the cut-out is quantised to
-FOXY_RUN_BOX = (22, 18, 100, 110)                       # left, top, width (multicolor pixels), height of the pasted picture (above the map)
+# Camera 2A (west hall) has one more picture than the PNGs in its directory: the first picture of Foxy's run, the hall (1.png) with Foxy
+# far away at the end of it. The rest of the run is the original animation (assets/camera/left_hallway/foxy/0.png ... 29.png; 29 is the
+# empty hall) in FA_FRAMES steps. Foxy is cut out of the original frames by comparing them with the empty hall (29.png), shrunk to the
+# 160 x 200 multicolor canvas and painted over 1.png; the HUD rows never change. A step is the list of cells that change from the
+# previous one (spans of cells: count, cell index, bitmap bytes, screen bytes, colour bytes). All steps come with the first picture's
+# bundle and sit in bank 3's noise memory, which is free while the run plays (src/foxyrun.asm plays them from there and rebuilds the noise).
+FA_FRAMES = [0, 6, 10, 14, 17, 20, 24]                      # original frames; after the last one the hall is empty again
+FA_THR = 54                                                     # colour difference (sum of channels) that makes a pixel Foxy's
+FA_GAIN = 2.6                                                   # the originals are very dark
+FA_ROWS = (2, 22)                                               # text rows that may change
+FA_GAP = 0                                                      # unchanged cells that do not split a span
+FA_MAXSPAN = 31
+# where the steps may live: (start, end exclusive). $e000-$fff9 is the noise bitmap (the vectors follow at $fffa), $c840 is free
+# (the noise screens at $c000 / $c400 stay: they would show as coloured garbage in the static while the steps load)
+FA_MEM = [(0xe000, 0xfffa), (0xc840, 0xcc00)]
 
 
-def foxy_run_canvas(hall):
-    im = Image.open(os.path.join(ASSETS, "camera", "left_hallway", "foxy.png")).convert("RGBA")
-    im = im.crop(im.getchannel("A").point(lambda a: 255 if a > 40 else 0).getbbox())
-    x0, y0, w, h = FOXY_RUN_BOX
-    scale = min(w * 2 / im.width, h / im.height)       # multicolor pixels are twice as wide as they are high
-    im = im.resize((max(1, round(im.width * scale / 2)), max(1, round(im.height * scale))), Image.LANCZOS)
-    cv = [row[:] for row in hall]
-    ox, oy = x0 + (w - im.width) // 2, y0 + h - im.height
-    px = im.load()
-    ext = {}                                             # text row -> [first, last] text column holding pasted pixels
-    for y in range(im.height):
-        for x in range(im.width):
-            r, g, b, a = px[x, y]
-            if a < 128:
-                continue
-            cv[oy + y][ox + x] = min(FOXY_RUN_PALETTE, key=lambda k: sum((u - v) ** 2 for u, v in zip((r, g, b), rgb(k))))
-            e = ext.setdefault((oy + y) // 8, [99, -1])
-            e[0], e[1] = min(e[0], (ox + x) // 4), max(e[1], (ox + x) // 4)
-    # The game slides him out of the picture to the right in whole cells (Code3, FoxyRunStep): per text row the cells from the first
-    # to the last one he touches move together, the cells he leaves turn black. The picture must stay clear of the map (rows 16 on).
-    rows = sorted(ext)
-    assert rows == list(range(rows[0], rows[-1] + 1)) and rows[0] >= 2 and rows[-1] <= 15, rows
+def fa_pick(r, g, b):
+    L = (r + g + b) / 3
+    red = (r - (g + b) / 2) / (r + g + b + 1)
+    if L < 22:
+        return 0
+    if red > 0.07:                                              # fur
+        return 2 if L < 150 else (8 if L < 215 else 10)
+    if L < 80:
+        return 11
+    if L < 140:
+        return 12
+    if L < 215:
+        return 15
+    return 1
+
+
+def fa_canvases(hall):
+    """-> one 160x200 canvas per animation step (Foxy over the hall) and the empty hall at the end"""
+    import numpy as np
+    d = os.path.join(ASSETS, "camera", "left_hallway", "foxy")
+    ref = np.array(Image.open(os.path.join(d, "29.png")).convert("RGB")).astype(float)
+    out = []
+    for k in FA_FRAMES:
+        a = np.array(Image.open(os.path.join(d, "%d.png" % k)).convert("RGB")).astype(float)
+        m = (np.abs(a - ref).sum(axis=2) > FA_THR).astype(float)
+        small = lambda x: np.array(Image.fromarray(x.astype("float32"), "F").resize((160, 200), Image.BOX))
+        cov = small(m)
+        ch = [small(a[..., i] * m) / np.maximum(cov, 1e-6) * FA_GAIN for i in range(3)]
+        cv = [row[:] for row in hall]
+        for y in range(FA_ROWS[0] * 8, FA_ROWS[1] * 8):
+            for x in range(160):
+                if cov[y, x] > 0.5:
+                    cv[y][x] = fa_pick(*(min(255, ch[i][y, x]) for i in range(3)))
+        out.append(cv)
+    out.append([row[:] for row in hall])
+    return out
+
+
+def gen_foxy_anim(hall, cam_idx):
+    """writes the step data (build/gen/fa_frag<n>.bin, fa_files.txt: address and file) and foxy_run.asm (step table); returns frame 0"""
+    cvs = fa_canvases(hall)
+    conv = []
+    for cv in cvs:
+        cv = [row[:] for row in cv]
+        hud_overlay(cv, cam_idx)
+        conv.append(mc_convert(cv))
+    frags = [bytearray() for _ in FA_MEM]
+    cur = [0]
+
+    def put(data, jump_ok=True):
+        """append data to the stream (a span or a terminator); a jump record moves the stream on to the next fragment"""
+        start, end = FA_MEM[cur[0]]
+        if start + len(frags[cur[0]]) + len(data) + 3 > end:
+            assert cur[0] + 1 < len(FA_MEM), "Foxy's run does not fit"
+            nxt = FA_MEM[cur[0] + 1][0]
+            frags[cur[0]] += bytes([0xff, nxt & 255, nxt >> 8])
+            cur[0] += 1
+        frags[cur[0]] += data
+
+    starts = []
+    total = 0
+    for step in range(1, len(conv)):
+        pb, ps, pc = conv[step - 1]
+        nb, ns, nc = conv[step]
+        starts.append(FA_MEM[cur[0]][0] + len(frags[cur[0]]))
+        cells = 0
+        for cy in range(FA_ROWS[0], FA_ROWS[1]):
+            ch = [cx for cx in range(40)
+                  if nb[(cy * 40 + cx) * 8:(cy * 40 + cx) * 8 + 8] != pb[(cy * 40 + cx) * 8:(cy * 40 + cx) * 8 + 8]
+                  or ns[cy * 40 + cx] != ps[cy * 40 + cx] or nc[cy * 40 + cx] != pc[cy * 40 + cx]]
+            spans = []
+            for cx in ch:
+                if spans and cx - spans[-1][1] <= FA_GAP + 1 and cx - spans[-1][0] < FA_MAXSPAN:
+                    spans[-1][1] = cx
+                else:
+                    spans.append([cx, cx])
+            for c0, c1 in spans:
+                i0, n = cy * 40 + c0, c1 - c0 + 1
+                put(bytes([n, i0 & 255, i0 >> 8]) + bytes(nb[i0 * 8:(i0 + n) * 8]) + bytes(ns[i0:i0 + n]) + bytes(nc[i0:i0 + n]))
+                cells += n
+        put(b"\0")
+        total += cells
+        print("foxy run step %d: %d cells" % (step, cells))
+    files = []
+    for n, (fr, (start, end)) in enumerate(zip(frags, FA_MEM)):
+        if fr:
+            fn = "fa_frag%d.bin" % n
+            open(os.path.join(OUT, fn), "wb").write(bytes(fr))
+            files.append("%04x %s" % (start, fn))
+    print("foxy run: %d cells, %d bytes in %d fragments" % (total, sum(map(len, frags)), len(files)))
+    open(os.path.join(OUT, "fa_files.txt"), "w").write("\n".join(files) + "\n")
     with open(os.path.join(OUT, "foxy_run.asm"), "w") as f:
-        f.write(".const FR_ROW0 = %d\n.const FR_ROWS = %d\n.const FR_AMIN = %d\n" % (rows[0], len(rows), min(ext[r][0] for r in rows)))
-        f.write("fr_a: .byte %s\n" % ",".join(str(ext[r][0]) for r in rows))
-        f.write("fr_b: .byte %s\n" % ",".join(str(ext[r][1]) for r in rows))
-    return cv
+        f.write(".const FA_STEPS = %d\n" % len(starts))
+        f.write("fr_tab_lo: .byte %s\n" % ",".join(str(a & 255) for a in starts))
+        f.write("fr_tab_hi: .byte %s\n" % ",".join(str(a >> 8) for a in starts))
+    return cvs[0]
 
 
 def gen_cams():
@@ -202,7 +281,7 @@ def gen_cams():
             paths = sorted(glob.glob(os.path.join(ASSETS, "camera", adir, "[0-9].png")))
             frames = [mc_canvas_from_indexed(load_indexed(p)) for p in paths]
             if adir == "left_hallway":
-                frames.append(foxy_run_canvas(frames[0]))
+                frames.append(gen_foxy_anim(frames[0], ci))
         for fi, cv in enumerate(frames):
             cv = [row[:] for row in cv]
             hud_overlay(cv, ci)

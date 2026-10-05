@@ -78,9 +78,10 @@ Survive from **12 AM to 6 AM** (an in-game hour is 89.2 s, like the original; a 
 * **Foxy** hides in Pirate Cove (cam 1C) and gets bolder the longer you do *not* use the monitor (any camera
   counts). When the curtain is empty he sprints down the west hall (watch cam 2A) – close the left door.
   He bangs on it and takes 1 %, 6 %, 11 % … of your power each time; an open door means the jumpscare. If you are
-  watching cam 2A while he sprints, the hall shows him **running at the camera** (`assets/camera/left_hallway/foxy.png`
-  pasted into the hall picture by `gen_cams`; the third picture of camera 2A): he stands there for a moment, then runs out of the
-  picture to the right and reaches the door (`src/foxyrun.asm`: the main loop moves his cells inside the camera buffer, three cells at a time).
+  watching cam 2A while he sprints (or open it meanwhile: the empty hall is never loaded first), you see the **original run animation**:
+  he appears far down the hall, charges the camera and leaves through the bottom of the picture, then he is at your door. The run
+  is `assets/camera/left_hallway/foxy/0.png` - `29.png` (the original frames; 29 is the empty hall) painted over `1.png` by
+  `gen_foxy_anim` in `tools/gen_assets.py`; `src/foxyrun.asm` plays it (see *Foxy's run in the west hall* below).
 * **Freddy** only walks while the monitor is down and stops while you look at him. When he is in the east hall
   corner (4B) he comes in as soon as you look at any *other* camera with the right door open – so keep that
   door closed while you use the monitor away from 4B, and watch 4B. Once he is inside he kills at random
@@ -195,6 +196,14 @@ patches and buttons. The power outage keeps the lit office on screen while the d
 the frame tick draws the opening doors (`PwDraw`, saving the main loop's temporaries). Freddy's face then loads into the hidden office buffer.
 Freddy's, Bonnie's and Chica's jumpscares are two hires pictures each (`assets/jumpscare/<who>/1.png`, `2.png`, converted by `gen_jumpscares` in `tools/gen_assets.py`).
 
+**Foxy's run in the west hall** (`src/foxyrun.asm`): camera 2A has a third picture, the hall with Foxy far away (the first frame of the run), which
+`WantFrame` picks as soon as Foxy sprints. Loading one picture per animation frame would take about half a second each, so the rest of the run is
+played from RAM: the steps (the cells that change from one animation frame to the next, as spans of bitmap / screen / colour bytes, 7 steps,
+about 9 KB) come with the first picture's bundle and sit in **bank 3's noise memory** (`$e000-$fff9`, `$c840-$cbff`), which nothing may show
+while the run plays; the main loop copies a step into the camera buffer every 4 frames. When the run ends or the picture is left early
+`NoiseRestore` fills the noise bitmap with random bytes again. Careful there: the frame tick shares some zero-page temporaries (`zsx`, `zt2`, ...)
+with the main loop, so the restore only uses `zdb`, X and Y. After the run Foxy arrives at once (`fx_run`, which the run holds back while it plays).
+
 **Foxy's jumpscare** (`src/foxy.asm`) moves a software sprite: the cells where `foxy/1.png` differs from the plain office (`office_normal.png`) are
 his (a cell is either his or the background's; `gen_foxy_sprite` writes them as `foxy_spr.bin`, and asserts that the last slide step reproduces
 `1.png`; `build/gen/prev_foxy.png` shows the steps). When the scare starts, the main loop copies the strip of the office he will run over
@@ -279,7 +288,7 @@ python3 tests/fuzz.py 3 2500          # random input, then checks the office bit
 python3 tools/runtest.py tests/scenarios/scen_ai_bonnie.py    # e.g. Bonnie walking to the door
 ```
 Scenarios that cover the new game: `scen_flow` (title → night card → office → camera), `scen_ai_*`
-(Bonnie, Foxy, Freddy), `scen_scare_bonnie` (jumpscare sequence), `scen_foxy_slide` (Foxy's run, every other frame), `scen_foxy_run` (Foxy running out of camera 2A's picture), `scen_power` (power outage),
+(Bonnie, Foxy, Freddy), `scen_scare_bonnie` (jumpscare sequence), `scen_foxy_slide` (Foxy's run, every other frame), `scen_foxy_run` (Foxy's run animation on camera 2A), `scen_power` (power outage),
 `scen_win` (6 AM and the next night), `scen_doorway` (hall lights show Bonnie / Chica), `scen_gallery1-3`
 (every camera with different animatronic positions), `scen_night7` / `scen_night7_play` / `scen_unlock7`
 (the custom night: title choice, levels, unlock by beating night 6), `scen_pause` (clock and sound freeze, resume).

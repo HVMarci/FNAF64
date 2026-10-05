@@ -46,11 +46,16 @@ L.append("")
 gid = 0
 for i in range(len(CAMS)):
     for f in range(frame_counts()[i]):
-        L.append("<< camera %d (%s) frame %d >>" % (i, CAMS[i][0], f))
+        L.append("<< camera %d (%s) frame %d%s >>" % (i, CAMS[i][0], f, " (Foxy runs, steps in the noise memory)" if i == 3 and f == frame_counts()[3] - 1 else ""))
         L.append("DirIndex:\t%02x" % (0x10 + gid))
         L.append("File:\t\"gen/cam_%02d_%d.bmp\"\t6000" % (i, f))
         L.append("File:\t\"gen/cam_%02d_%d.scr\"\t4000" % (i, f))
         L.append("File:\t\"gen/cam_%02d_%d.col\"\td800" % (i, f))
+        if i == 3 and f == frame_counts()[3] - 1:         # Foxy's run in the west hall: the steps come with its first picture (bank 3's noise memory)
+            for line in open(os.path.join(OUT, "gen", "fa_files.txt")).read().split("\n"):
+                if line:
+                    addr, fn = line.split()
+                    L.append("File:\t\"gen/%s\"\t%s" % (fn, addr))
         L.append("")
         gid += 1
 for who in range(4):            # frame 0 loads into the camera buffer while the office is still shown; frame 1 into the office buffer
