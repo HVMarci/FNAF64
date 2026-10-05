@@ -59,6 +59,19 @@ Start:
         jsr Sparkle_LoadNext    // bundle 3: office bitmap, patches, sprites
         lda #DI_SAVEFILE        // the save page (the reached night), ApplySave reads it in InitState
         jsr Sparkle_LoadA
+        jsr InitState           // (the title's glitch copy loads here; its BuildTables switches the display to the title)
+        lda #$3f                // ... so the disclaimer is put back until the title is complete
+        sta $dd02
+        lda #$08
+        sta $d018
+        sta $d016
+        jsr InitFont
+#if !SKIPTITLE
+        jsr DrawTitleTxt        // the title texts are drawn now, not by the main loop, so the title is complete when it appears
+        lda #0
+        sta mjob
+        sta mbusy
+#endif
 #if !TEST
         ldx #0                  // keep the disclaimer up for DISC_SECS seconds in all (the fail-safe loop ends it even if the clock does not run)
         ldy #0
@@ -76,11 +89,7 @@ Start:
 !:
 #endif
 DiscDone:
-        lda #$3d                // the title screen: bank 1
-        sta $dd02
-
-        jsr InitState
-        jsr InitFont
+        jsr BuildTables         // the title screen: bank 1 (InitNoise builds over the disclaimer)
         jsr InitNoise
         jsr InitSprites
         jsr SndInit
