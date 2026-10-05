@@ -1048,7 +1048,10 @@ g_done:
         // --- occasional full static flash ---
         jsr Random
         bne !+
-        lda #1
+        jsr Random              // 2 or 3 frames long
+        and #1
+        clc
+        adc #2
         sta flash
 !:
         // --- rolling noise band ---

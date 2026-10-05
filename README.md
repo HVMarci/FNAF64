@@ -121,7 +121,7 @@ Because rows are independent, the effects are just tables of "which layer does r
   while it is still loading) on one side and the office on the other,
 * **static burst / dissolve** – all rows noise, then rows switch to the picture in a shuffled order,
 * **camera life** – per-row X-scroll jitter, random glitch lines, a rolling static band and
-  occasional full-screen static flashes while a camera is up,
+  occasional full-screen static flashes (2-3 frames) while a camera is up,
 * frames without any effect use a single set of registers and no row IRQs.
 
 ### Office
