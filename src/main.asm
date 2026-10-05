@@ -1774,6 +1774,7 @@ GoTitle:
         lda #0
         sta tph
         sta tcnt
+        sta lamp_cur            // the lamp's colour cells belong to the office picture: LampUpdate must not redraw them over the title's glitch copy
         rts
 
 sm_totitle:
