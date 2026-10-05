@@ -80,7 +80,7 @@ Survive from **12 AM to 6 AM** (an in-game hour is 89.2 s, like the original; a 
   door closed while you use the monitor away from 4B, and watch 4B. Once he is inside he kills at random
   (25 % per second) while the monitor is down.
 * Cameras: the picture shows whoever stands in that room. When somebody moves in the room you are watching the
-  feed breaks up for a moment. Chica clatters pots and pans in the kitchen (cam 6 is audio only): an almost continuous rattle of metallic clangs (ring-modulated, with a noise clack) and pan clatters, loud on camera 6, quiet in the office, and only a faint clatter on the other cameras.
+  feed breaks up for a moment. Chica clatters pots and pans in the kitchen (cam 6 is audio only): a metallic clang (ring-modulated, with a noise clack) or a pan clatter every 0.3-0.8 s, sometimes two in quick succession, loud on camera 6, quiet in the office, and only a faint clatter on the other cameras.
 
 ### Animatronic AI (from the FNaF wiki / community AI guides)
 

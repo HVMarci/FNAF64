@@ -563,34 +563,21 @@ ae_knock:
         dec knock
         jmp ae_kit
 ae_kt:  dec knock_tm
-ae_kit: lda ai_pos+2            // Chica in the kitchen: long bursts of clangs and clatters, short pauses
+ae_kit: lda ai_pos+2            // Chica in the kitchen: a pot or pan every 0.3-0.8 s, sometimes two in quick succession
         cmp #9
-        bne ae_kz
-        lda kit_hits
-        bne ae_kh
+        bne ae_end
         lda kitchen_tm
         beq ae_kn
         dec kitchen_tm
         rts
-ae_kn:  jsr Random              // 8 - 23 beats
+ae_kn:  jsr Random
         and #$0f
-        clc
-        adc #8
-        sta kit_hits
-        rts
-ae_kh:  dec kit_hits
-        bne ae_kb
-        jsr Random              // pause 0.3 - 1 s
-        and #7
-        clc
-        adc #3
+        cmp #4
+        bcs !+
+        lda #0                  // one in four: the next one follows at once (0.1 s)
+!:      lsr
         sta kitchen_tm
-ae_kb:  jsr Random
-        and #7
-        beq ae_end              // one beat in eight is left out: irregular rhythm
         jmp KitchenHit
-ae_kz:  lda #0
-        sta kit_hits
 ae_end: rts
 
 //------------------------------------------------------------------------------
@@ -601,9 +588,11 @@ KitchenHit:
         lda mel_id              // voice 2 plays the music box
         bne kh_ret
         lda sfx_left
-        beq kh_go
+        beq kh_go0
         lda kit_ring            // another kitchen hit may be retriggered, any other effect is left alone
         beq kh_ret
+kh_go0: lda lau_i               // nor a laugh between its syllables
+        bne kh_ret
 kh_go:  jsr Random
         and #3
         beq !+                  // one in four: lid / pan clatter (noise), the rest: pot clang
@@ -622,24 +611,24 @@ kh_id:  lda kit_id,x
         lda sfx_wave
         and #4
         bne kh_ring
-        jsr Random              // noise crash: bright
-        and #$3f
+        jsr Random              // noise crash
+        and #$1f
         clc
-        adc #$70
+        adc #$30
         sta sfx_fh
         sta $d40f
         rts
 kh_ring:
-        jsr Random              // carrier 1 - 1.5 kHz
+        jsr Random              // carrier 0.5 - 0.95 kHz
         and #$1f
         clc
-        adc #$40
+        adc #$20
         sta sfx_fh
         sta $d40f
         lsr
         lsr
         sta kit_q
-        jsr Random              // voice 2 as the modulator at 1.5 / 1.75 / 2.25 / 2.5 times the carrier: inharmonic partials
+        jsr Random              // voice 2 as the modulator at 1.25 / 1.5 / 1.75 / 2.25 times the carrier: inharmonic partials
         sta $d407
         and #3
         tax
@@ -658,7 +647,7 @@ kh_ring:
         lda #3
         sta kit_ring
 kh_ret: rts
-kit_mul: .byte 6, 7, 9, 10
+kit_mul: .byte 5, 6, 7, 9
 kit_id: .byte SFX_CLATTER, SFX_CLANG, SFX_CLATTERQ, SFX_CLANGQ
 
 //------------------------------------------------------------------------------

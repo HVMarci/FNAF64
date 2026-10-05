@@ -17,6 +17,9 @@
 .label scr_fh     = sndvars+12
 .label scr_tmp    = sndvars+13
 .label scr_t2     = sndvars+14
+.label lau_i      = sndvars+15  // Freddy's laugh: next syllable + 1 (0: no laugh)
+.label lau_w      = sndvars+23  // frames of silence left before that syllable
+.label lau_f      = sndvars+24  // the laugh's starting pitch (hi byte), a little different every time
 
 SndInit:
         ldx #24
@@ -24,6 +27,7 @@ SndInit:
 !:      sta $d400,x
         dex
         bpl !-
+        sta lau_i
         lda #$00
         sta $d415
         lda #$30                // low cutoff for the fan rumble
@@ -60,7 +64,12 @@ SndInit:
 // A = effect id
 //------------------------------------------------------------------------------
 SndStart:
-        asl
+        ldx #0
+        stx lau_i               // any effect on voice 3 ends a laugh
+        cmp #SFX_LAUGH
+        bne !+
+        jmp LaughStart
+!:      asl
         asl
         asl
         tax
@@ -94,7 +103,14 @@ SndStart:
 
 //------------------------------------------------------------------------------
 SndTick:
+        lda lau_i               // laugh: the next syllable after the pause
+        beq st_sfx
         lda sfx_left
+        bne st_sfx
+        dec lau_w
+        bne st_sfx
+        jsr LaughSyl
+st_sfx: lda sfx_left
         beq st_amb
         dec sfx_left
         clc
@@ -443,9 +459,9 @@ sfx_tab:
         // 9 power down: falling saw
         .word $3800, $ff70
         .byte $21, $0a, $f8, 60
-        // 10 pans clattering: bright noise crash (the pitch is randomised by KitchenHit)
-        .word $7000, $0000
-        .byte $81, $03, $03, 5
+        // 10 pans clattering: noise crash (the pitch is randomised by KitchenHit)
+        .word $4000, $0000
+        .byte $81, $05, $06, 5
         // 11 groan: low growl
         .word $0700, $0006
         .byte $21, $06, $b0, 40
@@ -458,14 +474,14 @@ sfx_tab:
         // 14 receiver click
         .word $5000, $fe00
         .byte $81, $00, $00, 4
-        // 15 pot clang: triangle ring-modulated by voice 2 (KitchenHit sets both pitches): inharmonic, metallic
+        // 15 pot clang: triangle ring-modulated by voice 2 (KitchenHit sets both pitches): inharmonic, metallic, ringing for 0.2-0.4 s
         .word $3000, $0000
-        .byte $15, $06, $05, 5
+        .byte $15, $09, $08, 22
         // 16 / 17 the same two, quiet: no decay, a low sustain level (the 8 ms attack peak is the clang)
         .word $4000, $0000
-        .byte $81, $00, $33, 5
+        .byte $81, $00, $35, 5
         .word $3000, $0000
-        .byte $15, $00, $46, 5
+        .byte $15, $00, $48, 14
 
 .segment Code3
 
@@ -476,6 +492,52 @@ amb_sr:     .byte $00, $70, $40
 amb_fl:     .byte $00, $a7, $00
 amb_fh:     .byte $00, $06, $30
 buzz_fl:    .byte $a7, $b9
+
+// ---- Freddy's laugh, modelled on the original (Laugh_Giggle_Girl_*d): a deep, nearly pure "ho-ho-ho" - 7 syllables of
+// 0.1-0.2 s, 0.3-0.6 s apart, each starting at about 165-205 Hz and sagging by 15 %, getting quieter. Triangle on voice 3.
+.segment Code3
+LaughStart:
+        jsr Random              // the starting pitch: 165-205 Hz
+        and #3
+        clc
+        adc #$0b
+        sta lau_f
+        lda #1
+        sta lau_i
+LaughSyl:                       // start syllable lau_i-1
+        ldx lau_i
+        lda lau_on-1,x
+        bne !+
+        sta lau_i               // done
+        rts
+!:      sta sfx_left
+        lda lau_gap-1,x
+        sta lau_w
+        lda lau_sr-1,x
+        sta $d414
+        inc lau_i
+        lda #0
+        sta $d413               // instant attack, the sustain level sets the loudness
+        sta sfx_fl
+        sta $d40e
+        lda #$cd                // the pitch sags by ~15 % over a syllable
+        sta sfx_dl
+        lda #$ff
+        sta sfx_dh
+        lda lau_f
+        sta sfx_fh
+        sta $d40f
+        lda #$11
+        sta sfx_wave
+        lda #$10
+        sta $d412
+        lda #$11
+        sta $d412
+        rts
+//              (frames sounding, frames of silence after it, sustain / release)
+lau_on:  .byte 11, 10,  9,  9,  6,  8,  6, 0
+lau_gap: .byte 10, 21,  8,  9, 10, 12,  1
+lau_sr:  .byte $f6, $d6, $b6, $a6, $96, $86, $68
 
 // ---- jumpscare scream: as loud as the SID goes. Imitates the original clip, an electronic shriek: a buzzing tone at about 750 Hz
 // (rising to 780 Hz, then gliding down to 555 Hz) whose fundamental is weak and harmonics 3-5 (2-3.7 kHz) are the loudest,
