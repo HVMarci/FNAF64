@@ -1238,16 +1238,35 @@ pw_5s:  sta blank
         sta ps_stage
         lda #1
         sta blank
+        lda #0
+        sta tph                 // pictures requested so far
         jsr MelStop
         jmp PickTime
 pw_p6:  lda #1
-        sta blank
+        sta blank               // the display stays black until the scare shows the first picture
         jsr PowerSteps
-        lda ps_tm
+        lda mbusy               // the two Freddy pictures load at once, during the darkness
+        bne pw_p6w
+        lda tph
+        cmp #2
+        bcs pw_p6w
+        clc
+        adc #DI_JS              // Freddy: bundles DI_JS (frame 0, camera buffer) and DI_JS+1 (frame 1, office buffer)
+        inc tph
+        jsr ReqLoad
+        rts
+pw_p6w: lda ps_tm
         bne pw_r2
+        lda mbusy
+        bne pw_r2
+        lda tph
+        cmp #2
+        bcc pw_r2               // the timer is out, but the pictures are not both loaded yet
         lda #0
-        sta blank
-        jmp StartScare          // A = 0: Freddy
+        jsr StartScare          // A = 0: Freddy
+        lda #1
+        sta sc_pre              // no loading, the pictures flip at once
+        rts
 
 PickTime:                       // 5, 10, 15 or 20 s
         jsr Random
@@ -1280,8 +1299,18 @@ sm_scare:
         beq sn_flip
         cmp #6
         beq sn_load2
-        lda #LAY_OFFICE         // phase 0: frame 0 loads, the office stays up
+        lda sc_pre
+        beq sn_ph0
+        lda #0                  // power-out death: both pictures are in memory already (the display is still black)
+        sta sc_pre
+        sta tcnt
+        sta tph
+        lda #5
+        sta sc_ph
+        jmp SndScream
+sn_ph0: lda #LAY_OFFICE         // phase 0: frame 0 loads, the office stays up (fan and lamp keep going)
         jsr SetAll
+        jsr FanIrq
         lda tcnt
         bne sn_0b
         lda g_who
@@ -1981,7 +2010,13 @@ LampDrawDark:
 
 LampUpdate:
         lda mode
-        cmp #M_CARD
+        cmp #M_SCARE
+        bne lu_nsc
+        lda sc_ph               // the office stays up while jumpscare frame 0 loads: the lamp keeps flickering
+        ora blank
+        beq lu_office
+        rts
+lu_nsc: cmp #M_CARD
         bcs lu_ret
         lda mode
         beq lu_office
@@ -2045,6 +2080,12 @@ mw:     lda frame
         beq mw_scare
         cmp #M_TOTITLE
         beq mw_scare
+        cmp #M_POWER
+        bne mw_doors
+        lda ps_stage            // blackout: the office buffer receives jumpscare frame 1
+        cmp #6
+        beq mw_scare
+mw_doors:
         ldx #0
         jsr DoorStep
         ldx #1
@@ -2175,6 +2216,21 @@ fs_row: lda fan_bl,x
         cpx #5
         bne fs_row
 fs_ret: rts
+
+FanIrq:                         // one fan step from the frame tick (the main loop is busy loading); the main loop's temporaries are saved
+        ldx #5
+!:      lda zsrc,x
+        pha
+        dex
+        bpl !-
+        jsr fs_go
+        ldx #0
+!:      pla
+        sta zsrc,x
+        inx
+        cpx #6
+        bne !-
+        rts
 
 //------------------------------------------------------------------------------
 // Load requested camera image when the effects allow it
