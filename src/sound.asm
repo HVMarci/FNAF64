@@ -13,6 +13,9 @@
 .label kit_ring   = sndvars+8   // ring-modulated kitchen hit: voice 2 is its modulator (1), or the noise clack still plays (2, 3)
 .label kit_q      = sndvars+9
 .label scream_t   = sndvars+10  // frames left of the jumpscare scream (it owns all three voices)
+.label scr_fl     = sndvars+11  // the scream's pitch (voices 1 and 2), gliding
+.label scr_fh     = sndvars+12
+.label scr_tmp    = sndvars+13
 
 SndInit:
         ldx #24
@@ -110,26 +113,7 @@ SndTick:
 st_amb:
         lda scream_t
         beq st_am0
-        jsr Random              // the filter cutoff jumps around every frame: the screech wanders between 2 and 4 kHz
-        and #$1f
-        clc
-        adc #$0e
-        sta $d416
-        jsr Random              // voice 1 jitters around 2.3 kHz
-        and #$3f
-        clc
-        adc #$80
-        sta $d401
-        lda scream_t            // fade out over the last 15 frames
-        cmp #16
-        bcc !+
-        lda #15
-!:      ora #$40
-        sta $d418
-        dec scream_t
-        bne st_sr
-        jmp ScreamEnd
-st_sr:  rts
+        jmp ScreamTick
 st_am0: lda mel_id
         beq st_nomel
         jmp MelTick
@@ -452,9 +436,9 @@ sfx_tab:
         // 7 sting: shrill pulse rising (seeing somebody in the doorway)
         .word $5800, $0140
         .byte $41, $00, $f0, 18
-        // 8 scream: long harsh noise
-        .word $2800, $0030
-        .byte $81, $00, $f0, 150
+        // 8 scream: the hiss at its start, fading out in 1.5 s after the first 1.2 s
+        .word $3800, $ffe0
+        .byte $81, $00, $ca, 60
         // 9 power down: falling saw
         .word $3800, $ff70
         .byte $21, $0a, $f8, 60
@@ -492,9 +476,12 @@ amb_fl:     .byte $00, $a7, $00
 amb_fh:     .byte $00, $06, $30
 buzz_fl:    .byte $a7, $b9
 
-// ---- jumpscare scream: as loud as the SID goes. Imitates the original scream (about 80 % of its energy at 1.6-3.2 kHz, an unsteady cluster of peaks, constant level): noise on voices 2 and 3 plus a jittering sawtooth on voice 1, all through the resonant band-pass filter whose cutoff jumps every frame, at
-// full sustain and nothing routed through the filter; the ambient sounds stay off until ScreamEnd.
-.segment Code3
+// ---- jumpscare scream: as loud as the SID goes. Imitates the original clip, an electronic shriek: a buzzing tone at about 750 Hz
+// (rising to 780 Hz, then gliding down to 555 Hz) whose fundamental is weak and harmonics 3-5 (2-3.7 kHz) are the loudest,
+// hissy at first, full level for 2 s, then dying away over 3 s. Voice 1 sawtooth and voice 2 pulse (slightly detuned, both
+// jittering: a rough beat) plus the noise of voice 3, all through the resonant band-pass filter that follows the pitch
+// around the 4th harmonic and wanders a little every frame. The ambient sounds stay off until ScreamEnd.
+.const SCR_LEN = 250
 SndScream:
         lda #SFX_SCREAM
         jsr SndStart            // voice 3: noise
@@ -502,32 +489,94 @@ SndScream:
         sta $d417
         lda #$4f                // band-pass, volume 15
         sta $d418
+        lda #<$313c             // 740 Hz
+        sta scr_fl
+        lda #>$313c
+        sta scr_fh
         lda #0
         sta $d415
-        sta $d40c               // voice 2: noise, no attack, full sustain
-        sta $d407
-        sta $d405               // voice 1: sawtooth, no attack, full sustain
-        sta $d400
-        lda #$24
-        sta $d416
-        lda #$f0
-        sta $d40d
+        sta $d405               // voices 1 and 2: no attack, full sustain, slow release (halves in about 0.7 s)
+        sta $d40c
+        lda #$fd
         sta $d406
-        lda #$c0
-        sta $d408
-        lda #$98
-        sta $d401
-        lda #$80
-        sta $d40b
-        lda #$81
-        sta $d40b
+        sta $d40d
+        lda #$05                // voice 2: 31 % pulse
+        sta $d40a
         lda #$20
         sta $d404
-        lda #$21
+        lda #$21                // voice 1: sawtooth
         sta $d404
-        lda #150
+        lda #$40
+        sta $d40b
+        lda #$41                // voice 2: pulse
+        sta $d40b
+        lda #SCR_LEN
         sta scream_t
+        jsr ScreamTick          // pitches and cutoff for the first frame (counts this frame)
         rts
+
+ScreamTick:                     // the pitch rises for 0.8 s, sinks slowly until 2.1 s, then glides down while the voices die away
+        ldx #17
+        lda scream_t
+        cmp #SCR_LEN-39
+        bcs sc_add
+        ldx #<-19
+        cmp #SCR_LEN-104
+        bcc sc_add
+        ldx #<-16
+        cmp #SCR_LEN-104
+        bne sc_add
+        lda #$20                // 2.1 s: release voices 1 and 2
+        sta $d404
+        lda #$40
+        sta $d40b
+sc_add: ldy #0
+        txa
+        bpl !+
+        dey
+!:      clc
+        adc scr_fl
+        sta scr_fl
+        tya
+        adc scr_fh
+        sta scr_fh
+        jsr Random              // voice 1: the pitch + up to 1 % jitter
+        and #$7f
+        clc
+        adc scr_fl
+        sta $d400
+        lda scr_fh
+        adc #0
+        sta $d401
+        jsr Random              // voice 2: about 0.6 % higher, jittering separately and twice as much
+        and #$7f
+        clc
+        adc #$20
+        adc scr_fl
+        sta $d407
+        lda scr_fh
+        adc #0
+        sta $d408
+        jsr Random              // the cutoff follows the pitch and wanders over the 3rd-5th harmonics
+        and #$0f
+        sta scr_tmp
+        lda scr_fh
+        lsr
+        clc
+        adc scr_tmp
+        sec
+        sbc #1
+        sta $d416
+        lda scream_t            // fade out over the last 15 frames
+        cmp #16
+        bcc !+
+        lda #15
+!:      ora #$40
+        sta $d418
+        dec scream_t
+        bne !+
+        jmp ScreamEnd
+!:      rts
 
 ScreamEnd:                      // back to the fan hum (voice 1, low-pass filtered) and the ambient voice 2
         lda #$01
