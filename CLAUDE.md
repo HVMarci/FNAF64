@@ -9,4 +9,7 @@
 ## Git
 - When a change is finished and everything is alright (it builds, the layout check passes, the relevant scenarios look right),
   **always commit and push** it. Do not wait to be asked.
-- `dist/fnaf64.d64` is tracked: `./build.sh` rewrites it, so commit the rebuilt disk together with the source change.
+
+## Disk images
+- Build the disk images after **every** change, not only at the end: `./build.sh` (-> `dist/fnaf64.d64`) and `./build.sh unlocked`
+  (-> `dist/fnaf64_all_nights.d64`). Both are tracked, so commit the rebuilt images together with the source change.
