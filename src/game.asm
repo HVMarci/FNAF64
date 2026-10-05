@@ -499,12 +499,9 @@ ae_fox: lda ai_pos+3
         lda #1
         sta fx_seen
         sta camdirty
-        lda fx_run
-        cmp #30
-        bcc !+
-        lda #30
+        lda #40                 // 4 s: the picture loads, he stands for a moment and runs out of it (foxyrun.asm holds this timer meanwhile)
         sta fx_run
-!:      lda #SFX_STEP
+        lda #SFX_STEP
         jsr SndStart
 ae_run: dec fx_run
         bne ae_fr

@@ -2232,6 +2232,7 @@ mw_scare:
         jsr FanStep
         jsr RollStep
         jsr SubDraw
+        jsr FoxyRunStep
         jsr MainJobs
         jsr HudRefresh
         jsr CamCheck
@@ -2852,6 +2853,9 @@ rsr_lo:     .fill 22, <(OFF_SCR + (i+3)*40 + 29)
 rsr_hi:     .fill 22, >(OFF_SCR + (i+3)*40 + 29)
 
 .import source "pause.asm"
+.segment Code1                  // (Code3 has no room for the test harness any more)
+.import source "foxyrun.asm"
+.segment Code3
 
 //------------------------------------------------------------------------------
 // Test harness (test builds only): key script + snapshot hooks. Lives in the spare segment so that

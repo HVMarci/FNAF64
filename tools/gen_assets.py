@@ -161,7 +161,7 @@ def kitchen_canvas():
 # with assets/camera/left_hallway/foxy.png (a cut-out with transparency, any size) scaled and pasted in. The game shows it while
 # Foxy runs and the player watches the hall. Frame index = number of numbered PNGs.
 FOXY_RUN_PALETTE = [0, 1, 2, 8, 11, 12, 15]         # the colours the cut-out is quantised to
-FOXY_RUN_BOX = (22, 18, 100, 118)                       # left, top, width (multicolor pixels), height of the pasted picture (above the map)
+FOXY_RUN_BOX = (22, 18, 100, 110)                       # left, top, width (multicolor pixels), height of the pasted picture (above the map)
 
 
 def foxy_run_canvas(hall):
@@ -173,12 +173,23 @@ def foxy_run_canvas(hall):
     cv = [row[:] for row in hall]
     ox, oy = x0 + (w - im.width) // 2, y0 + h - im.height
     px = im.load()
+    ext = {}                                             # text row -> [first, last] text column holding pasted pixels
     for y in range(im.height):
         for x in range(im.width):
             r, g, b, a = px[x, y]
             if a < 128:
                 continue
             cv[oy + y][ox + x] = min(FOXY_RUN_PALETTE, key=lambda k: sum((u - v) ** 2 for u, v in zip((r, g, b), rgb(k))))
+            e = ext.setdefault((oy + y) // 8, [99, -1])
+            e[0], e[1] = min(e[0], (ox + x) // 4), max(e[1], (ox + x) // 4)
+    # The game slides him out of the picture to the right in whole cells (Code3, FoxyRunStep): per text row the cells from the first
+    # to the last one he touches move together, the cells he leaves turn black. The picture must stay clear of the map (rows 16 on).
+    rows = sorted(ext)
+    assert rows == list(range(rows[0], rows[-1] + 1)) and rows[0] >= 2 and rows[-1] <= 15, rows
+    with open(os.path.join(OUT, "foxy_run.asm"), "w") as f:
+        f.write(".const FR_ROW0 = %d\n.const FR_ROWS = %d\n.const FR_AMIN = %d\n" % (rows[0], len(rows), min(ext[r][0] for r in rows)))
+        f.write("fr_a: .byte %s\n" % ",".join(str(ext[r][0]) for r in rows))
+        f.write("fr_b: .byte %s\n" % ",".join(str(ext[r][1]) for r in rows))
     return cv
 
 

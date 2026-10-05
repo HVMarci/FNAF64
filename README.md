@@ -79,7 +79,8 @@ Survive from **12 AM to 6 AM** (an in-game hour is 89.2 s, like the original; a 
   counts). When the curtain is empty he sprints down the west hall (watch cam 2A) – close the left door.
   He bangs on it and takes 1 %, 6 %, 11 % … of your power each time; an open door means the jumpscare. If you are
   watching cam 2A while he sprints, the hall shows him **running at the camera** (`assets/camera/left_hallway/foxy.png`
-  pasted into the hall picture by `gen_cams`; the third picture of camera 2A) and he gets much faster.
+  pasted into the hall picture by `gen_cams`; the third picture of camera 2A): he stands there for a moment, then runs out of the
+  picture to the right and reaches the door (`src/foxyrun.asm`: the main loop moves his cells inside the camera buffer, three cells at a time).
 * **Freddy** only walks while the monitor is down and stops while you look at him. When he is in the east hall
   corner (4B) he comes in as soon as you look at any *other* camera with the right door open – so keep that
   door closed while you use the monitor away from 4B, and watch 4B. Once he is inside he kills at random
@@ -278,7 +279,7 @@ python3 tests/fuzz.py 3 2500          # random input, then checks the office bit
 python3 tools/runtest.py tests/scenarios/scen_ai_bonnie.py    # e.g. Bonnie walking to the door
 ```
 Scenarios that cover the new game: `scen_flow` (title → night card → office → camera), `scen_ai_*`
-(Bonnie, Foxy, Freddy), `scen_scare_bonnie` (jumpscare sequence), `scen_foxy_slide` (Foxy's run, every other frame), `scen_foxy_run` (Foxy running at camera 2A), `scen_power` (power outage),
+(Bonnie, Foxy, Freddy), `scen_scare_bonnie` (jumpscare sequence), `scen_foxy_slide` (Foxy's run, every other frame), `scen_foxy_run` (Foxy running out of camera 2A's picture), `scen_power` (power outage),
 `scen_win` (6 AM and the next night), `scen_doorway` (hall lights show Bonnie / Chica), `scen_gallery1-3`
 (every camera with different animatronic positions), `scen_night7` / `scen_night7_play` / `scen_unlock7`
 (the custom night: title choice, levels, unlock by beating night 6), `scen_pause` (clock and sound freeze, resume).

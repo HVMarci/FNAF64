@@ -2,4 +2,4 @@
 NIGHT = 1
 POS = (0, 0, 0, 3)
 STEPS = [(100, "SPACE", ""), (101, "", ""), (300, "3", ""), (301, "", "")]
-STEPS += [(f, "", "r%04d" % f) for f in range(200, 680, 40)]
+STEPS += [(f, "", "r%04d" % f) for f in range(420, 700, 10)]
