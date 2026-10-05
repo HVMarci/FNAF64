@@ -849,25 +849,45 @@ StartScare:                     // A = who: 0 Freddy, 1 Bonnie, 2 Chica, 3 Foxy
 StartPowerOut:
         jsr PhoneStop
         jsr FanOff
+        ldx #0                  // tph: 0 the office is shown (static is not needed), 1 the monitor is up
+        lda mode
+        beq !+
+        inx
+!:      stx tph
         lda #M_POWER
         sta mode
         lda #0
         sta ps_stage
         sta tcnt
-        sta tph
         sta can_load
         sta sprmode
-        sta lamp_cur
         sta g_pkill
-        ldx #$0d
-!:      sta dstate,x            // doors up, lights out (the picture is replaced)
-        dex
-        bpl !-
-        sta wdrawn
-        sta wdrawn+1
-        sta bdrawn
+        sta shake
+        sta pw_irq
+        sta lflick
+        sta lflick+1
         sta adoor
         sta adoor+1
+        sta a_seen
+        sta a_seen+1
+        ldx #1
+!:      lda dstate,x            // closed doors open (animated while the dark office loads), the lights go out (LightLogic)
+        beq st_dn
+        cmp #DS_OPENING
+        beq st_dn
+        lda dedge,x
+        beq st_dopen
+        lda #DS_OPENING
+        bne st_dset
+st_dopen:
+        lda #DS_OPEN
+st_dset:
+        sta dstate,x
+st_dn:  dex
+        bpl !-
+        lda #0
+        sta lamp_cur
+        jsr LampDrawNorm        // (the lamp is frozen until the picture is replaced)
         lda #SFX_POWER
         jmp SndStart
 

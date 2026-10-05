@@ -1134,25 +1134,49 @@ rq_go:  ldx #1
         sta mjob
         rts
 
+.segment Code3                  // (Code1 and Code2 are nearly full)
 // ---- power outage ----
-// stage 0 static + load dark office, 1 dissolve (Freddy's picture loads into the camera buffer meanwhile), 2 darkness (footsteps),
-// 5 Freddy in the doorway (music box, the face blinks: his picture and the dark office alternate), 6 blackout (the scare pictures load), then the scare
+// stage 0 the lit office stays up (the closed doors open, the lights go out) while the dark office loads into the camera buffer
+// (with the monitor up: static instead), 1 dissolve to the dark office, 2 darkness (footsteps; Freddy's picture loads into the
+// office buffer), 5 Freddy in the doorway (music box, the face blinks: his picture and the dark office alternate), 6 blackout
+// (the scare pictures load), then the scare.  tph: 0 office shown, 1 monitor up (stages 0-2)
 sm_power:
         lda #0
         sta sprmode
         lda ps_stage
         bne pw_p1
+        lda #LAY_OFFICE
+        ldx tph
+        beq pw_0s
         lda #LAY_NOISE
-        jsr SetAll
+pw_0s:  jsr SetAll
         lda tcnt
         bne pw_0b
         lda #DI_DARK
         jsr ReqLoad
-pw_0b:  inc tcnt
-        lda tcnt
+pw_0b:  lda tcnt
+        cmp #10
+        bcs pw_0c
+        inc tcnt
+pw_0c:  lda tph
+        bne pw_0w
+        lda pw_irq
+        beq pw_0w
+        jsr PwDraw
+pw_0w:  lda tcnt
         cmp #10
         bcc pw_ret
         lda mbusy
+        bne pw_ret
+        lda dedge               // the doors are open and everything is drawn
+        ora dedge+1
+        ora ddrawn
+        ora ddrawn+1
+        ora wdrawn
+        ora wdrawn+1
+        ora ldrawn
+        ora ldrawn+1
+        ora bdrawn
         bne pw_ret
         lda #1
         sta ps_stage
@@ -1161,19 +1185,27 @@ pw_0b:  inc tcnt
 pw_ret: rts
 pw_p1:  cmp #1
         bne pw_p2
-        lda #LAY_OFFICE
+        lda #LAY_TITLE
         sta revlay
         jsr RevealRows
-        lda tcnt
-        bne pw_1b
-        lda #DI_DARKF           // the dark office is on its way up: load Freddy's picture into the camera buffer now
-        jsr ReqLoad
-pw_1b:  inc tcnt
+        lda tph
+        bne pw_1n
+        ldx #24                 // the rows that did not dissolve yet show the office, not static
+pw_1l:  lda rowlayer,x
+        cmp #LAY_NOISE
+        bne !+
+        lda #LAY_OFFICE
+        sta rowlayer,x
+!:      dex
+        bpl pw_1l
+pw_1n:  inc tcnt
         lda tcnt
         cmp #9
         bcc pw_ret
         lda #2
         sta ps_stage
+        lda #0
+        sta tcnt
         jsr Random              // 1 - 14 s of darkness
         and #$7f
         clc
@@ -1182,9 +1214,14 @@ pw_1b:  inc tcnt
         rts
 pw_p2:  cmp #2
         bne pw_p5
-        lda #LAY_OFFICE
+        lda #LAY_TITLE
         jsr SetAll
-        jsr PowerSteps
+        lda tcnt
+        bne pw_2b
+        inc tcnt
+        lda #DI_DARKF           // the office buffer is hidden now: Freddy's picture loads into it
+        jsr ReqLoad
+pw_2b:  jsr PowerSteps
         lda ps_tm
         bne pw_ret
         lda mbusy               // (the picture is loaded long before, unless the darkness was very short)
@@ -1193,7 +1230,7 @@ pw_p2:  cmp #2
         sta ps_stage
         lda #0
         sta blank
-        lda #LAY_TITLE          // Freddy's picture is in the camera buffer: it simply appears
+        lda #LAY_OFFICE         // Freddy's picture is in the office buffer: it simply appears
         jsr SetAll
         lda #MEL_BOX            // Freddy's music box
         jsr MelStart
@@ -1201,11 +1238,11 @@ pw_p2:  cmp #2
 pw_r2:  rts
 pw_p5:  cmp #5
         bne pw_p6
-        jsr Random              // eyes flicker: now and then the picture switches back to the dark office (still in the office buffer)
+        jsr Random              // eyes flicker: now and then the picture switches back to the dark office (camera buffer)
         cmp #60
-        lda #LAY_TITLE
-        bcs pw_5s
         lda #LAY_OFFICE
+        bcs pw_5s
+        lda #LAY_TITLE
 pw_5s:  jsr SetAll
         lda ps_tm
         bne pw_r2
@@ -1259,7 +1296,43 @@ PowerSteps:
         jmp SndStart
 !:      rts
 
-.segment Code3                  // (Code1 and Code2 are nearly full)
+// Called by the frame tick in stage 0 (the main loop is inside the loader then): the door, light and button drawing of the
+// main loop. The main loop's temporaries are saved around it.
+PwDraw:
+        ldx #8
+!:      lda zsrc,x              // zsrc .. zrow
+        pha
+        dex
+        bpl !-
+        lda mt
+        pha
+        lda mt2
+        pha
+        lda zwin
+        pha
+        ldx #0
+        jsr DoorStep
+        ldx #1
+        jsr DoorStep
+        ldx #0
+        jsr LightRender
+        ldx #1
+        jsr LightRender
+        jsr ButtonRender
+        pla
+        sta zwin
+        pla
+        sta mt2
+        pla
+        sta mt
+        ldx #0
+!:      pla
+        sta zsrc,x
+        inx
+        cpx #9
+        bne !-
+        rts
+
 // ---- jumpscare. Frame 0 loads into the camera buffer while the office stays on screen (a power-out blackout stays black).
 // Then frame 0 is shown (the scream starts) while frame 1 loads into the office buffer; the two pictures then flip every 5 frames
 // (0.1 s) for 10 flips (1 s), all the time shaking, and it cuts to static. Nothing loads between the flips.
@@ -2061,6 +2134,13 @@ mw:     lda frame
         lda ps_stage            // blackout: the office buffer receives jumpscare frame 1
         cmp #6
         beq mw_scare
+        lda ps_stage            // stage 0 with the office shown: the main loop sits in the loader, so the frame tick draws the doors
+        bne mw_doors
+        lda tph
+        bne mw_doors
+        lda #1
+        sta pw_irq
+        jmp mw_scare
 mw_doors:
         ldx #0
         jsr DoorStep

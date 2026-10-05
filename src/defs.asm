@@ -262,6 +262,7 @@
 .label roll_off     = gv+102     // 5 AM -> 6 AM scroll offset (lines) requested by the frame tick
 .label roll_drawn   = gv+103
 .label sc_pre       = gv+104     // 1: both jumpscare pictures were loaded during the power-out blackout
+.label pw_irq       = gv+105     // power out stage 0: the frame tick draws the opening doors (the main loop is inside the loader)
 .label roll_buf     = gv+112     // 64 bytes: two 16x32 strips (5 above 6)
 .label ph_st        = gv+180     // phone call: 0 idle, 1 waiting, 2 ringing, 3 talking
 .label ph_tm        = gv+181

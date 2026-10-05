@@ -178,12 +178,14 @@ loads and text cards through `mjob` / `mbusy`.
 
 ```
 title → (night 1 only: static → newspaper "HELP WANTED", 5 s or SPACE) → static → night card (office assets load meanwhile) → office ⇄ monitor ⇄ camera switching
-   office/camera → power out → dark office → Freddy in the doorway (music box) → blackout → jumpscare
+   office → power out: doors open (animated) and lights go out while the dark office loads → dissolve → dark office → Freddy in the doorway (music box) → blackout → jumpscare
+   (with the monitor up the camera dies into static first)
    any animatronic → static → jumpscare frame 1 → static → frame 2 → GAME OVER → title
    6 AM → "5 AM" rolls up and the "6" rolls in from below + chime → (newspaper after night 5, ending card after night 6) → title, next night
 ```
 The 12 AM card is on screen while the office bundle is (re)loaded, which also resets the office picture,
-patches and buttons. The dark-office pictures for the power outage replace the office bitmap the same way.
+patches and buttons. The power outage keeps the lit office on screen while the dark office loads into the camera buffer; the loader blocks the main loop, so
+the frame tick draws the opening doors (`PwDraw`, saving the main loop's temporaries). Freddy's face then loads into the hidden office buffer.
 All four jumpscares are two hires pictures each (`assets/jumpscare/<who>/1.png`, `2.png`, converted by `gen_jumpscares` in `tools/gen_assets.py`).
 
 ### Sound

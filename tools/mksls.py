@@ -56,12 +56,13 @@ for who in range(4):            # frame 0 loads into the camera buffer while the
         L.append("File:\t\"gen/js_%d_%d.scr\"\t%s" % (who, f, "0400" if f else "4000"))
         L.append("")
 for n, (fn, di) in enumerate((("dark", 0x48), ("darkfreddy", 0x49))):
-    # the dark office replaces the office picture; the one with Freddy's face loads into the camera buffer (hires, LAY_TITLE) while
-    # the dark office is shown, so the power-out sequence can switch to it without a loading gap
+    # power outage: the dark office loads into the camera buffer (hires, LAY_TITLE) while the lit office is still shown (its doors
+    # open meanwhile); Freddy's face then loads into the now hidden office buffer, so the sequence can switch between the two
+    # pictures (his blinking face) without a loading gap
     L.append("<< %s office >>" % fn)
     L.append("DirIndex:\t%02x" % di)
-    L.append("File:\t\"gen/%s.bmp\"\t%s" % (fn, "6000" if n else "2000"))
-    L.append("File:\t\"gen/%s.scr\"\t%s" % (fn, "4000" if n else "0400"))
+    L.append("File:\t\"gen/%s.bmp\"\t%s" % (fn, "2000" if n else "6000"))
+    L.append("File:\t\"gen/%s.scr\"\t%s" % (fn, "0400" if n else "4000"))
     L.append("")
 for n in range(1, 6):
     L.append("<< phone call night %d >>" % n)
