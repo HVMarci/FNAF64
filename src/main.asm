@@ -1136,7 +1136,7 @@ rq_go:  ldx #1
 
 // ---- power outage ----
 // stage 0 static + load dark office, 1 dissolve (Freddy's picture loads into the camera buffer meanwhile), 2 darkness (footsteps),
-// 5 Freddy in the doorway (music box, flickering eyes), 6 blackout (the scare pictures load), then the scare
+// 5 Freddy in the doorway (music box, the face blinks: his picture and the dark office alternate), 6 blackout (the scare pictures load), then the scare
 sm_power:
         lda #0
         sta sprmode
@@ -1191,6 +1191,8 @@ pw_p2:  cmp #2
         bne pw_ret
         lda #5
         sta ps_stage
+        lda #0
+        sta blank
         lda #LAY_TITLE          // Freddy's picture is in the camera buffer: it simply appears
         jsr SetAll
         lda #MEL_BOX            // Freddy's music box
@@ -1199,14 +1201,12 @@ pw_p2:  cmp #2
 pw_r2:  rts
 pw_p5:  cmp #5
         bne pw_p6
-        lda #LAY_TITLE
-        jsr SetAll
-        jsr Random              // eyes flicker: the picture blinks out now and then
+        jsr Random              // eyes flicker: now and then the picture switches back to the dark office (still in the office buffer)
         cmp #60
-        lda #0
+        lda #LAY_TITLE
         bcs pw_5s
-        lda #1
-pw_5s:  sta blank
+        lda #LAY_OFFICE
+pw_5s:  jsr SetAll
         lda ps_tm
         bne pw_r2
         lda #6
