@@ -157,6 +157,31 @@ def kitchen_canvas():
     return cv
 
 
+# Camera 2A (west hall) has one more picture than the PNGs in its directory: Foxy sprinting at the camera, the hall (1.png)
+# with assets/camera/left_hallway/foxy.png (a cut-out with transparency, any size) scaled and pasted in. The game shows it while
+# Foxy runs and the player watches the hall. Frame index = number of numbered PNGs.
+FOXY_RUN_PALETTE = [0, 1, 2, 8, 11, 12, 15]         # the colours the cut-out is quantised to
+FOXY_RUN_BOX = (22, 18, 100, 118)                       # left, top, width (multicolor pixels), height of the pasted picture (above the map)
+
+
+def foxy_run_canvas(hall):
+    im = Image.open(os.path.join(ASSETS, "camera", "left_hallway", "foxy.png")).convert("RGBA")
+    im = im.crop(im.getchannel("A").point(lambda a: 255 if a > 40 else 0).getbbox())
+    x0, y0, w, h = FOXY_RUN_BOX
+    scale = min(w * 2 / im.width, h / im.height)       # multicolor pixels are twice as wide as they are high
+    im = im.resize((max(1, round(im.width * scale / 2)), max(1, round(im.height * scale))), Image.LANCZOS)
+    cv = [row[:] for row in hall]
+    ox, oy = x0 + (w - im.width) // 2, y0 + h - im.height
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r, g, b, a = px[x, y]
+            if a < 128:
+                continue
+            cv[oy + y][ox + x] = min(FOXY_RUN_PALETTE, key=lambda k: sum((u - v) ** 2 for u, v in zip((r, g, b), rgb(k))))
+    return cv
+
+
 def gen_cams():
     files = []
     for ci, (name, adir, title) in enumerate(CAMS):
@@ -165,6 +190,8 @@ def gen_cams():
         else:
             paths = sorted(glob.glob(os.path.join(ASSETS, "camera", adir, "[0-9].png")))
             frames = [mc_canvas_from_indexed(load_indexed(p)) for p in paths]
+            if adir == "left_hallway":
+                frames.append(foxy_run_canvas(frames[0]))
         for fi, cv in enumerate(frames):
             cv = [row[:] for row in cv]
             hud_overlay(cv, ci)
@@ -185,7 +212,7 @@ def frame_counts():
         if adir is None:
             n.append(1)
         else:
-            n.append(len(glob.glob(os.path.join(ASSETS, "camera", adir, "[0-9].png"))))
+            n.append(len(glob.glob(os.path.join(ASSETS, "camera", adir, "[0-9].png"))) + (adir == "left_hallway"))
     return n
 
 

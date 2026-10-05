@@ -688,8 +688,10 @@ wf_cove:
 wf_2a:  lda ai_pos+3
         cmp #3
         bne !+
-        lda fx_seen
-        bne wf_one
+        lda fx_seen             // Foxy running at the camera (the third picture of 2A)
+        beq !+
+        lda #2
+        jmp wf_done
 !:      lda ai_pos+1
         cmp #3
         beq wf_one
