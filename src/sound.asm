@@ -64,8 +64,15 @@ SndInit:
 // A = effect id
 //------------------------------------------------------------------------------
 SndStart:
+        ldx lau_i               // any effect on voice 3 ends a laugh
+        beq !+
+        ldx #$ff                // (voice 2 goes back to the ambient sound)
+        stx amb2_cur
         ldx #0
-        stx lau_i               // any effect on voice 3 ends a laugh
+        stx lau_i
+!:
+        ldx #$08                // and gets the 50 % pulse width back
+        stx $d411
         cmp #SFX_LAUGH
         bne !+
         jmp LaughStart
@@ -103,8 +110,9 @@ SndStart:
 
 //------------------------------------------------------------------------------
 SndTick:
-        lda lau_i               // laugh: the next syllable after the pause
+        lda lau_i               // laugh: voice 2 doubles it, the next syllable after the pause
         beq st_sfx
+        jsr LaughV2
         lda sfx_left
         bne st_sfx
         dec lau_w
@@ -135,7 +143,10 @@ st_am0: lda mel_id
         beq st_nomel
         jmp MelTick
 st_nomel:
-        lda kit_ring
+        lda lau_i               // a laugh owns voice 2
+        beq !+
+        rts
+!:      lda kit_ring
         beq st_kn
         cmp #2
         bcc st_k1
@@ -494,7 +505,7 @@ amb_fh:     .byte $00, $06, $30
 buzz_fl:    .byte $a7, $b9
 
 // ---- Freddy's laugh, modelled on the original (Laugh_Giggle_Girl_*d): a deep, nearly pure "ho-ho-ho" - 7 syllables of
-// 0.1-0.2 s, 0.3-0.6 s apart, each starting at about 165-205 Hz and sagging by 15 %, getting quieter. Triangle on voice 3.
+// 0.1-0.2 s, 0.3-0.6 s apart, each starting at about 165-205 Hz and sagging by 15 %, getting quieter. Pulse on voice 3.
 .segment Code3
 LaughStart:
         jsr Random              // the starting pitch: 165-205 Hz
@@ -508,13 +519,25 @@ LaughSyl:                       // start syllable lau_i-1
         ldx lau_i
         lda lau_on-1,x
         bne !+
-        sta lau_i               // done
+        sta lau_i               // done: voice 2 goes back to the ambient sound
+        lda #$ff
+        sta amb2_cur
         rts
 !:      sta sfx_left
         lda lau_gap-1,x
         sta lau_w
         lda lau_sr-1,x
         sta $d414
+        ldy mel_id              // voice 2 doubles it (unless the music box plays): same envelope, 50 % pulse
+        bne !+
+        sta $d40d
+        lda #0
+        sta $d40c
+        lda #$40
+        sta $d40b
+        lda #$41
+        sta $d40b
+!:
         inc lau_i
         lda #0
         sta $d413               // instant attack, the sustain level sets the loudness
@@ -527,17 +550,35 @@ LaughSyl:                       // start syllable lau_i-1
         lda lau_f
         sta sfx_fh
         sta $d40f
-        lda #$11
+        lda #$05                // 31 % pulse: loud and buzzy, with a strong 2nd harmonic like the original
+        sta $d411
+        lda #$41
         sta sfx_wave
-        lda #$10
+        lda #$40
         sta $d412
-        lda #$11
+        lda #$41
         sta $d412
         rts
 //              (frames sounding, frames of silence after it, sustain / release)
 lau_on:  .byte 11, 10,  9,  9,  6,  8,  6, 0
-lau_gap: .byte 10, 21,  8,  9, 10, 12,  1
-lau_sr:  .byte $f6, $d6, $b6, $a6, $96, $86, $68
+lau_gap: .byte 10, 21,  8,  9, 10, 12, 12
+lau_sr:  .byte $f6, $f6, $e6, $d6, $c6, $b6, $a8
+
+LaughV2:                        // voice 2 follows the laugh's pitch, a little higher (a slow, rough beat), and is released with voice 3
+        lda mel_id
+        bne lv_ret
+        lda sfx_fl
+        clc
+        adc #$30
+        sta $d407
+        lda sfx_fh
+        adc #0
+        sta $d408
+        lda sfx_left
+        bne lv_ret
+        lda #$40
+        sta $d40b
+lv_ret: rts
 
 // ---- jumpscare scream: as loud as the SID goes. Imitates the original clip, an electronic shriek: a buzzing tone at about 750 Hz
 // (rising to 780 Hz, then gliding down to 555 Hz) whose fundamental is weak and harmonics 3-5 (2-3.7 kHz) are the loudest,
