@@ -2310,6 +2310,20 @@ CopyStrip1:
 CopyRecStrip:
         lda zrow
         sta mt2
+        cmp #2
+        bcs crs_plain
+        asl                     // the top two rows: the strip is masked by the slanted door frame (strip_msk)
+        ora mt
+        ldx zside
+        beq !+
+        ora #4
+!:      tay
+        lda msk_lo,y
+        sta zsrc
+        lda msk_hi,y
+        sta zsrc+1
+        jmp CopyRecDst
+crs_plain:
         lda mt
         sta zrow
         jsr CopyRecSrc          // computes zsrc from zside/zvar/zrow
@@ -2645,6 +2659,10 @@ kcol:       .byte $fd,$fd,$ef,$df,$7f,$7f,$7f,$fd,$fd,$fb,$fb,$f7,$fe,$fd,$bf,$e
 krow:       .byte $04,$20,$20,$04,$10,$01,$08,$01,$08,$01,$08,$01,$04,$80,$10,$10
 
 // patch addressing
+// pre-masked hazard strip records for the top two patch rows: left (row 0: strip 0/1, row 1: strip 0/1), then right
+strip_msk:  .import binary "../build/gen/strip_msk.bin"
+msk_lo:     .fill 8, <(strip_msk + i*REC_SZ)
+msk_hi:     .fill 8, >(strip_msk + i*REC_SZ)
 sbase_lo:   .byte <PATCHES, <(PATCHES+SIDE_SZ)
 sbase_hi:   .byte >PATCHES, >(PATCHES+SIDE_SZ)
 voff_lo:    .byte <P_N, <P_L, <P_C, <P_S, <P_A

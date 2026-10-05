@@ -257,6 +257,46 @@ def button_records(normal, light, closed):
     return out
 
 
+# The hazard strip of the door animation is a straight 2-row rectangle, but the top of the doorway is slanted: at the first
+# two patch rows part of the strip's cells belongs to the frame and must stay hidden. Those four (row, strip row) cases
+# get their own pre-masked records (per side 4 x 63 bytes, strip_msk in Code3): pixels outside the opening (black in
+# the open office) keep the frame, the opening shows the strip. A cell that ends up with more than two colours keeps the
+# frame colours plus black and the strip pixels become black (the stripes are cut off along the frame edge).
+MASK_ROWS = 2
+DOOR_CELLS = {LEFT_COL0: range(0, 5), RIGHT_COL0: range(4, 9)}
+
+
+def masked_strip_records(normal_idx, half_idx, col0):
+    recs = []
+    for r in range(MASK_ROWS):
+        for s in range(2):
+            cv = [row[:] for row in normal_idx]
+            for c in DOOR_CELLS[col0]:
+                cx = col0 + c
+                y0 = (PATCH_ROW0 + r) * 8
+                ys = 88 + 8 * s                  # strip rows: text rows 11 / 12 of the half-closed picture
+                cells = [[(normal_idx[y0 + y][cx * 8 + x], half_idx[ys + y][cx * 8 + x]) for x in range(8)] for y in range(8)]
+                inside = lambda n: n == 0
+                fcols = {n for row in cells for n, h in row if not inside(n)}
+                mcols = [h for row in cells for n, h in row if inside(n)]
+                allc = sorted(fcols | set(mcols))
+                if len(allc) > 2:
+                    keep = sorted(fcols)[:2]
+                    if len(keep) < 2:
+                        keep.append(0)
+                    dark = min(keep, key=lambda k: sum(rgb(k)))
+                    near = lambda h: dark
+                else:
+                    near = lambda h: h
+                for y in range(8):
+                    for x in range(8):
+                        n, h = cells[y][x]
+                        cv[y0 + y][cx * 8 + x] = near(h) if inside(n) else n
+            st = hires_convert(cv)
+            recs.append(patch_records(st, col0, rows=[PATCH_ROW0 + r])[0])
+    return recs
+
+
 def gen_office():
     normal = office_state("normal")
     light = office_state("doorlight")
@@ -275,6 +315,10 @@ def gen_office():
         out += b"".join(patch_records(anim, col0))
     out += button_records(normal, light, closed)
     open(os.path.join(OUT, "patches.bin"), "wb").write(out)
+    nidx = load_indexed(os.path.join(ASSETS, "office", "office_normal.png"))
+    hidx = load_indexed(os.path.join(ASSETS, "office", "office_door_1.png"))
+    open(os.path.join(OUT, "strip_msk.bin"), "wb").write(
+        b"".join(b"".join(masked_strip_records(nidx, hidx, c0)) for c0 in (LEFT_COL0, RIGHT_COL0)))
     for name, fn in (("dark", "dark"), ("dark_freddy", "darkfreddy")):
         b, sc = office_state(name)
         open(os.path.join(OUT, fn + ".bmp"), "wb").write(b)

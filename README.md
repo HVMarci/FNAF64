@@ -127,7 +127,7 @@ Because rows are independent, the effects are just tables of "which layer does r
 The office is one bitmap. The door and light artwork are cut out into small **patches**
 (22 rows; a record is the 7 cells of one row that are ever copied – 5 door + 2 window cells, 63 bytes) stored in bank 2. A door closing is a
 row-by-row sweep of the closed patch over the open one with a hazard-stripe edge that follows
-the sweep; opening runs it backwards; lights swap a patch variant. The main loop does the
+the sweep (at the top two rows, where the doorway's slanted frame overlaps the strip, pre-masked strip records keep the frame visible; `strip_msk`, 504 bytes in Code3); opening runs it backwards; lights swap a patch variant. The main loop does the
 copying (`DoorStep`, `LightRender`), the frame IRQ only advances the logic.
 Door and window are separate cell ranges of each patch: the door follows the door state, the window follows the light alone, so a lit window shows through even with the door shut. The door and light **buttons are part of the office pictures** (green door button = closed, white light button = lit): each is two cells in the column beside the door patches, kept as an off and a lit variant after the patches (144 bytes) and redrawn by `ButtonRender` whenever the door or light state changes, so the office needs no sprites. Extras: door-slam **screen shake** (`$d011` scroll),
 a flashing ceiling lamp (three brightness levels, colour cells) and a **spinning desk fan** (four prepared frames of
