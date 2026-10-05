@@ -504,8 +504,8 @@ amb_fl:     .byte $00, $a7, $00
 amb_fh:     .byte $00, $06, $30
 buzz_fl:    .byte $a7, $b9
 
-// ---- Freddy's laugh, modelled on the original (Laugh_Giggle_Girl_*d): a deep, nearly pure "ho-ho-ho" - 7 syllables of
-// 0.1-0.2 s, 0.3-0.6 s apart, each starting at about 165-205 Hz and sagging by 15 %, getting quieter. Pulse on voice 3.
+// ---- Freddy's laugh, modelled on the original (Laugh_Giggle_Girl_*d): a deep, nearly pure "ho-ho-ho" - 4 syllables of
+// 0.1-0.2 s, 0.3-0.35 s apart (1.3 s in all), each starting at about 165-205 Hz and sagging by 15 %, getting quieter. Pulse on voice 3.
 .segment Code3
 LaughStart:
         jsr Random              // the starting pitch: 165-205 Hz
@@ -560,9 +560,9 @@ LaughSyl:                       // start syllable lau_i-1
         sta $d412
         rts
 //              (frames sounding, frames of silence after it, sustain / release)
-lau_on:  .byte 11, 10,  9,  9,  6,  8,  6, 0
-lau_gap: .byte 10, 21,  8,  9, 10, 12, 12
-lau_sr:  .byte $86, $86, $76, $76, $66, $66, $58      // sustain levels: half of full volume
+lau_on:  .byte 10,  8,  8,  6, 0
+lau_gap: .byte  7,  9,  8, 10
+lau_sr:  .byte $86, $86, $76, $68      // sustain levels: half of full volume
 
 LaughV2:                        // voice 2 follows the laugh's pitch, a little higher (a slow, rough beat), and is released with voice 3
         lda mel_id
