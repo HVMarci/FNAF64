@@ -1648,6 +1648,7 @@ tt_0b:  inc tcnt
         sta tph
         lda #0
         sta tcnt
+        jsr FanOn               // (silent after a power-out death until now)
 tt_ret: rts
 tt_p1:  lda #LAY_TITLE
         sta revlay

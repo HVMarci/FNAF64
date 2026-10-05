@@ -748,6 +748,7 @@ wf_done:
 //------------------------------------------------------------------------------
 NewNight:
         jsr MelStop
+        jsr FanOn
         jsr PhoneStop
         lda #0
         ldx #$0d
@@ -847,6 +848,7 @@ StartScare:                     // A = who: 0 Freddy, 1 Bonnie, 2 Chica, 3 Foxy
 
 StartPowerOut:
         jsr PhoneStop
+        jsr FanOff
         lda #M_POWER
         sta mode
         lda #0

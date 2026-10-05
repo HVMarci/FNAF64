@@ -20,6 +20,7 @@
 .label lau_i      = sndvars+15  // Freddy's laugh: next syllable + 1 (0: no laugh)
 .label lau_w      = sndvars+23  // frames of silence left before that syllable
 .label lau_f      = sndvars+24  // the laugh's starting pitch (hi byte), a little different every time
+.label fan_off    = sndvars+16  // 1: the fan hum (voice 1) is silenced (after the power ran out)
 
 SndInit:
         ldx #24
@@ -28,6 +29,7 @@ SndInit:
         dex
         bpl !-
         sta lau_i
+        sta fan_off
         lda #$00
         sta $d415
         lda #$30                // low cutoff for the fan rumble
@@ -58,6 +60,20 @@ SndInit:
         sta $d411
         lda #$ff
         sta amb2_cur
+        rts
+
+FanOff:                         // the power is out: no more fan hum (gate off, quick release)
+        lda #1
+        sta fan_off
+        lda #$80
+        sta $d404
+        rts
+
+FanOn:                          // back to the hum (new night, title screen)
+        lda #0
+        sta fan_off
+        lda #$81
+        sta $d404
         rts
 
 //------------------------------------------------------------------------------
@@ -754,7 +770,10 @@ ScreamEnd:                      // back to the fan hum (voice 1, low-pass filter
         lda #$40
         sta $d406
         lda #$81
-        sta $d404
+        ldx fan_off             // (stays silent after a power outage)
+        beq !+
+        lda #$80
+!:      sta $d404
         lda #$ff
         sta amb2_cur
         rts
