@@ -395,12 +395,9 @@ ho_bar: lda #8
         dey
         bpl !-
         jmp ho_next
-ho_on:  lda #$50                // green
-        ldx g_usage
-        cpx #3
-        bcc !+
-        lda #$20                // red from usage 3 on
-!:      jsr BarH
+ho_on:  ldx zhb
+        lda bar_col,x           // bars 1-2 green, 3 yellow, 4-5 red
+        jsr BarH
 ho_next:
         inc zhb
         lda zhb
@@ -457,14 +454,12 @@ hc_bar: lda zhb
         tax
         ldy #23
         jsr CellAddr
-        lda #2
+        ldx zhb                 // bars 1-2 green (pixel %10, screen low nibble 5), 3 yellow (%10, nibble 7), 4-5 red (%11)
+        lda bar_hval,x
         sta hval
-        ldx g_usage
-        cpx #3
-        bcc !+
-        lda #3
-        sta hval
-!:      ldx zhb
+        lda bar_hcol,x
+        sta hcol
+        ldx zhb
         inx
         cpx g_usage
         bcc hc_on
@@ -477,6 +472,8 @@ hc_next:
         lda zhb
         cmp #5
         bne hc_bar
+        lda #$15
+        sta hcol                // (the bars changed it)
         lda #1
         sta hval
         jsr TimeText            // clock and night at the top right, the REC sign (sprite) below them
@@ -842,6 +839,9 @@ dtt_ret: rts
 .encoding "screencode_upper"
 str_power:  .text "POWER:"
             .byte $ff
+bar_col:    .byte $50, $50, $70, $20, $20       // usage bar colours in the office (hires screen byte): green, green, yellow, red, red
+bar_hval:   .byte 2, 2, 2, 3, 3                 // ... in the camera picture (multicolor pixel value)
+bar_hcol:   .byte $15, $15, $17, $15, $15       // ... and its screen byte (low nibble = colour of pixel value 2)
 str_usage:  .text "USAGE:"
             .byte $ff
 str_night:  .text "NIGHT "
