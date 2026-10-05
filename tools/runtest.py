@@ -5,7 +5,7 @@ usage: runtest.py scenario.py [outdir]
 
 scenario.py defines  STEPS = [(frame, keys, 'snapname'), ...]
 keys is a string of key names held from that frame on:
-  A S K L (doors/lights)  SPACE  1-7  RIGHT LEFT  M  P (pause)  JL JR JF JU JD
+  A S K L (doors/lights)  SPACE  0-9 ARROW (left arrow key)  RIGHT LEFT  M  P (pause)  JL JR JF JU JD
 A snapshot named 'snapname' (or '' for none) is taken at that frame.
 """
 import os, re, subprocess, sys, shutil
@@ -13,17 +13,19 @@ import os, re, subprocess, sys, shutil
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KA = {"A": 0x01, "S": 0x02, "K": 0x04, "L": 0x08, "SPACE": 0x10, "LEFT": 0x20, "RIGHT": 0x40, "M": 0x80}
 KB = {str(i): 1 << (i - 1) for i in range(1, 8)}
+KD = {"ARROW": 1, "8": 2, "9": 4, "0": 8}        # left arrow key, 8, 9, 0
 KC = {"JL": 1, "JR": 2, "JF": 4, "JU": 8, "JD": 16, "P": 32}
 
 
 def keys_to_bytes(s):
-    a = b = c = 0
+    a = b = c = d = 0
     for k in s.split():
         if k in KA: a |= KA[k]
         elif k in KB: b |= KB[k]
         elif k in KC: c |= KC[k]
+        elif k in KD: d |= KD[k]
         else: raise SystemExit("bad key " + k)
-    return a, b, c
+    return a, b, c, d
 
 
 def main():
@@ -37,12 +39,12 @@ def main():
     snaps = []
     lines = ["test_script:"]
     for frame, keys, name in steps:
-        a, b, c = keys_to_bytes(keys)
+        a, b, c, d = keys_to_bytes(keys)
         sid = 0
         if name:
             snaps.append(name)
             sid = len(snaps)
-        lines.append("  .word %d\n  .byte %d,%d,%d,%d" % (frame, a, b, c, sid))
+        lines.append("  .word %d\n  .byte %d,%d,%d,%d,%d" % (frame, a, b, c, d, sid))
     lines.append("  .word $ffff\n  .byte 0,0,0,0")
     lines.append(".label TEST_NIGHT = %d" % ns.get("NIGHT", 1))
     lines.append(".label TEST_POWER = %d" % ns.get("POWER", 100))

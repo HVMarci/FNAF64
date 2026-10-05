@@ -52,11 +52,11 @@ Autostart takes a few seconds; the title screen appears once the first files are
 | `S` / `K` | hold left / right **light** (only one at a time) |
 | `M` | mute the phone call |
 | `P` | pause / resume (office and monitor only): clock, animatronics, phone and sound stop, the border turns red |
-| `1`–`7` | camera post: `1` cycles 1A/1B/1C, `2` cycles 2A/2B, `4` cycles 4A/4B, `3`, `5`, `6` (kitchen, audio only), `7` |
+| `←`, `1`–`9`, `0` | camera (monitor up), as numbered on the camera map: `←` show stage (the original post names used in this README: 1A), `1` dining area (1B), `2` pirate cove (1C), `3`/`4` west hall / its corner (2A/2B), `5` supply closet (3), `6`/`7` east hall / its corner (4A/4B), `8` backstage (5), `9` kitchen (6, audio only), `0` restrooms (7) |
 | `CRSR →` / `SHIFT+CRSR` | next / previous camera |
 | Joystick port 2 | fire = camera, left/right = doors (office) or prev/next camera, up/down = left/right light |
 
-The key letters are printed on the button icons next to the doors.
+The key letters are printed on the button icons next to the doors; the camera keys are the buttons of the map in the camera picture (the selected one is lit).
 Switching a camera streams the new picture from disk, which takes about a second – the
 monitor shows static meanwhile. Re-opening the monitor on the camera that is already loaded is
 instant.
@@ -135,7 +135,7 @@ a flashing ceiling lamp (three brightness levels, colour cells) and a **spinning
 sweeping dithered blades, redrawn every third frame by `FanStep`), light flicker.
 
 ### Cameras and the HUD
-Each camera picture is converted to a multicolor bitmap with the camera title and map baked in
+Each camera picture is converted to a multicolor bitmap with the camera title and the map (`assets/map.png`) baked in
 (selected post highlighted), so switching cameras is one Sparkle bundle (`$6000` bitmap,
 `$4000` screen, `$d800` colour RAM, loaded straight to the destination). Every camera has one
 bundle **per picture** (31 in total, e.g. the stage has five: all three / no Bonnie / no Chica / only

@@ -5,6 +5,7 @@
 .label tk_a   = sndvars+16
 .label tk_b   = sndvars+17
 .label tk_c   = sndvars+18
+.label tk_d   = gv+110           // left arrow, 8, 9, 0 (kd_now)
 .label snapn  = sndvars+19
 .label snapvec= sndvars+20      // 2 bytes
 .label tinit  = sndvars+22
@@ -36,10 +37,13 @@ ts_go:  ldy #0
         sta tk_c
         iny
         lda (tsp),y
+        sta tk_d
+        iny
+        lda (tsp),y
         sta snapn
         lda tsp
         clc
-        adc #6
+        adc #7
         sta tsp
         bcc !+
         inc tsp+1
@@ -60,6 +64,8 @@ TestOverride:
         sta ka_now
         lda tk_b
         sta kb_now
+        lda tk_d
+        sta kd_now
         lda tk_c
         and #$1f
         sta kc_now

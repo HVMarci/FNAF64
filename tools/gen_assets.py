@@ -60,6 +60,7 @@ FONT = {
     '-': ["000", "000", "111", "000", "000"],
     ':': ["000", "010", "000", "010", "000"],
     "'": ["010", "010", "000", "000", "000"],
+    '<': ["001", "011", "111", "011", "001"],       # the left arrow key (camera 0, the show stage), like the triangle on the map
     ' ': ["000", "000", "000", "000", "000"],
 }
 
@@ -85,27 +86,31 @@ def draw_text(cv, x, y, s, color, scale=1, sx=1):
 
 
 # ------------------------------------------------------------------ cams
-# name, asset dir, default frame, (key label), hud grid position (col,row)
+# key label (the C64 key that selects the camera: left arrow, 1-9, 0; '<' is the arrow), asset dir, title.
+# The order is the camera index used by the game (src/game.asm) and equals the order of the keys on the keyboard.
 CAMS = [
-    ("1A", "stage", "SHOW STAGE", (1, 0)),
-    ("1B", "party_room", "DINING AREA", (1, 1)),
-    ("1C", "foxy_stage", "PIRATE COVE", (1, 2)),
-    ("2A", "left_hallway", "WEST HALL", (1, 3)),
-    ("2B", "left_corner", "W. HALL CORNER", (1, 4)),
-    ("3", "cabinet", "SUPPLY CLOSET", (0, 4)),
-    ("4A", "right_hallway", "EAST HALL", (2, 3)),
-    ("4B", "right_corner", "E. HALL CORNER", (2, 4)),
-    ("5", "service_room", "BACKSTAGE", (0, 2)),
-    ("6", None, "KITCHEN", (3, 2)),
-    ("7", "restroom", "RESTROOMS", (3, 1)),
+    ("<", "stage", "SHOW STAGE"),
+    ("1", "party_room", "DINING AREA"),
+    ("2", "foxy_stage", "PIRATE COVE"),
+    ("3", "left_hallway", "WEST HALL"),
+    ("4", "left_corner", "W. HALL CORNER"),
+    ("5", "cabinet", "SUPPLY CLOSET"),
+    ("6", "right_hallway", "EAST HALL"),
+    ("7", "right_corner", "E. HALL CORNER"),
+    ("8", "service_room", "BACKSTAGE"),
+    ("9", None, "KITCHEN"),
+    ("0", "restroom", "RESTROOMS"),
 ]
 
-# HUD panel geometry (MC pixel canvas: 160x200; 4 px per cell)
-PANEL_COL0, PANEL_ROW0 = 25, 17      # cell coordinates
-PANEL_COLS, PANEL_ROWS = 14, 7
-BTN_X0, BTN_Y0 = PANEL_COL0 * 4 + 2, PANEL_ROW0 * 8 + 8  # first button top-left
-BTN_W, BTN_H = 11, 7
-BTN_PX, BTN_PY = 12, 8
+# The camera map (assets/map.png, 320x200, only the map is drawn) is baked into every camera picture: bottom right,
+# on a black plate, with the button of the selected camera lit up. Buttons are 5x7 multicolor pixels; top-left corners
+# in the map image (multicolor pixels, same order as CAMS).
+MAP_BTN_W, MAP_BTN_H = 5, 7
+MAP_BTNS = [(64, 138), (62, 148), (59, 158), (62, 172), (62, 180), (52, 172), (79, 172), (79, 180),
+            (52, 143), (93, 172), (93, 148)]
+MAP_DX, MAP_DY = 55, -4              # where the map image goes in the camera picture (multicolor pixels)
+PANEL_COL0, PANEL_ROW0 = 26, 16      # black plate under the map (cell coordinates)
+PANEL_COLS, PANEL_ROWS = 13, 8
 
 
 def draw_plate(cv, col0, row0, cols, rows, color=0):
@@ -118,10 +123,12 @@ def draw_plate(cv, col0, row0, cols, rows, color=0):
 # They are baked as empty black plates so the runtime only has to write glyph pixels.
 CAM_HUD_PLATES = [(29, 0, 10, 1), (25, 1, 14, 1), (1, 22, 23, 2)]     # col, row, cols, rows
 
+MAP_IDX = mc_canvas_from_indexed(load_indexed(os.path.join(ASSETS, "map.png")))
+
 
 def hud_overlay(cv, camidx):
     """Draw label + camera map with the given camera highlighted."""
-    name, _, title, _ = CAMS[camidx]
+    name, _, title = CAMS[camidx]
     for (pc, pr, pw, ph) in CAM_HUD_PLATES:
         draw_plate(cv, pc, pr, pw, ph, 0)
     # title plate
@@ -129,28 +136,20 @@ def hud_overlay(cv, camidx):
     cols = len(label)
     draw_plate(cv, 1, 1, cols + 1, 1, 0)
     draw_text(cv, 1 * 4 + 1, 1 * 8 + 1, label, 1)
-    # map plate with outline
+    # the map on its plate
     draw_plate(cv, PANEL_COL0, PANEL_ROW0, PANEL_COLS, PANEL_ROWS, 0)
-    x0, y0 = PANEL_COL0 * 4, PANEL_ROW0 * 8
-    x1, y1 = (PANEL_COL0 + PANEL_COLS) * 4 - 1, (PANEL_ROW0 + PANEL_ROWS) * 8 - 1
-    for x in range(x0, x1 + 1):
-        cv[y0][x] = 11
-        cv[y1][x] = 11
-    for y in range(y0, y1 + 1):
-        cv[y][x0] = 11
-        cv[y][x1] = 11
-    for i, (n, _, _, (gc, gr)) in enumerate(CAMS):
-        bx = BTN_X0 + gc * BTN_PX
-        by = BTN_Y0 + gr * BTN_PY
-        sel = (i == camidx)
-        fill = 5 if sel else 11       # green when selected, dark grey otherwise
-        txt = 0 if sel else 15
-        for y in range(BTN_H):
-            for x in range(BTN_W):
-                cv[by + y][bx + x] = fill
-        w = text_width(n)
-        tx = bx + (BTN_W - w) // 2
-        draw_text(cv, tx, by + 1, n, txt)
+    m = [row[:] for row in MAP_IDX]
+    bx, by = MAP_BTNS[camidx]
+    for y in range(by, by + MAP_BTN_H):         # selected: green button, black key label
+        for x in range(bx, bx + MAP_BTN_W):
+            m[y][x] = {11: 5, 15: 0}.get(m[y][x], m[y][x])
+    for y in range(200):
+        for x in range(160):
+            c = m[y][x]
+            ty, tx = y + MAP_DY, x + MAP_DX
+            if c and 0 <= ty < 200 and 0 <= tx < 160:
+                assert PANEL_COL0 * 4 <= tx < (PANEL_COL0 + PANEL_COLS) * 4 and PANEL_ROW0 * 8 <= ty < (PANEL_ROW0 + PANEL_ROWS) * 8
+                cv[ty][tx] = c
 
 
 def kitchen_canvas():
@@ -164,7 +163,7 @@ def kitchen_canvas():
 
 def gen_cams():
     files = []
-    for ci, (name, adir, title, _) in enumerate(CAMS):
+    for ci, (name, adir, title) in enumerate(CAMS):
         if adir is None:
             frames = [kitchen_canvas()]
         else:
@@ -186,7 +185,7 @@ def gen_cams():
 
 def frame_counts():
     n = []
-    for name, adir, title, _ in CAMS:
+    for name, adir, title in CAMS:
         if adir is None:
             n.append(1)
         else:
@@ -494,7 +493,7 @@ def hires_text(idx, x, y, s, color, sx=2, sy=2):
 TITLE_KEYS = [
     ("A DOOR   S LIGHT  LEFT", 170),
     ("L DOOR   K LIGHT  RIGHT", 177),
-    ("SPACE CAMERA  1-7 CAMS", 184),
+    ("SPACE CAMERA  < 1-0 CAMS", 184),
     ("M MUTE PHONE CALL  P PAUSE", 191),
 ]
 

@@ -429,6 +429,8 @@ ScanInput:
         sta ka_prev
         lda kb_now
         sta kb_prev
+        lda kd_now
+        sta kd_prev
         lda kc_now
         sta kc_prev
         ldx #15
@@ -443,6 +445,18 @@ si_p:   lda #1
 si_s:   sta keyraw,x
         dex
         bpl si1
+        ldx #3                  // left arrow, 8, 9, 0
+si2:    lda kcol2,x
+        sta $dc00
+        lda $dc01
+        and krow2,x
+        beq si_p2
+        lda #0
+        beq si_s2
+si_p2:  lda #1
+si_s2:  sta keyraw2,x
+        dex
+        bpl si2
         lda #$df                // P: pause (column 5, row 1)
         sta $dc00
         lda $dc01
@@ -497,6 +511,16 @@ si_nocrsr:
 !:      dex
         bpl !--
         sta kb_now
+        // --- left arrow, 8, 9, 0 -> kd bits 0..3
+        lda #0
+        ldx #3
+!:      asl
+        ldy keyraw2,x
+        beq !+
+        ora #1
+!:      dex
+        bpl !--
+        sta kd_now
         // --- joystick
         lda joy
         lsr
@@ -609,8 +633,20 @@ ev_notoffice:
         bne !-
 !:      inx
         stx evdigit
-ev_nodigit:
         rts
+ev_nodigit:
+        lda kd_prev             // left arrow, 8, 9, 0 -> evdigit 11, 8, 9, 10
+        eor #$ff
+        and kd_now
+        beq ev_ret
+        ldx #0
+!:      lsr
+        bcs !+
+        inx
+        bne !-
+!:      lda kd_codes,x
+        sta evdigit
+ev_ret: rts
 
 //==============================================================================
 // Game state machine (runs in the frame tick)
@@ -914,26 +950,12 @@ sc_nocam:
         // camera selection
         lda cam_cur
         sta zt2
-        lda evdigit
+        lda evdigit             // 1-9, 10 (0 key), 11 (left arrow) select the camera directly
         beq sc_nodig
-        tax
-        dex
-        lda grp_start,x
-        sta zt                  // start
-        lda cam_cur
-        sec
-        sbc zt
-        bcc sc_first            // below group
-        clc
-        adc #1                  // t = cam_cur - start + 1
-        cmp grp_len,x
-        bcs sc_first            // beyond or wrapped
-        clc
-        adc zt
-        jmp sc_set
-sc_first:
-        lda zt
-        jmp sc_set
+        cmp #11
+        bcc sc_set
+        lda #0                  // left arrow: camera 0 (show stage)
+        beq sc_set
 sc_nodig:
         lda ev
         and #EV_NEXT
@@ -2759,14 +2781,16 @@ fan_n1:     .fill 5, fan_cnt.get(i)
 
 js_flip:    .byte LAY_TITLE, LAY_OFFICE                       // jumpscare frame 0 (camera buffer) / frame 1 (office buffer), both hires
 ptime_tab:  .byte 50, 100, 150, 200
-grp_start:  .byte 0,3,5,6,8,9,10
-grp_len:    .byte 3,2,1,2,1,1,1
+kd_codes:   .byte 11,8,9,10         // key code of the kd bits: 1-9 = the digit, 10 = the 0 key, 11 = left arrow
 evdoor:     .byte EV_LD, EV_RD
 
 // key matrix: column select / row mask
 //             A    S    K    L   SPC   1    2    3    4    5    6    7   CRSR LSH  RSH
 kcol:       .byte $fd,$fd,$ef,$df,$7f,$7f,$7f,$fd,$fd,$fb,$fb,$f7,$fe,$fd,$bf,$ef
 krow:       .byte $04,$20,$20,$04,$10,$01,$08,$01,$08,$01,$08,$01,$04,$80,$10,$10
+//             <-   8    9    0
+kcol2:      .byte $7f,$f7,$ef,$ef
+krow2:      .byte $02,$08,$01,$08
 
 // patch addressing
 // pre-masked hazard strip records for the top two patch rows: left (row 0: strip 0/1, row 1: strip 0/1), then right

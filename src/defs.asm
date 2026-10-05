@@ -247,6 +247,9 @@
 .label groan_tm     = gv+51
 .label kit_hits     = gv+55     // kitchen clatter: hits left in the burst
 .label hbuf         = gv+56     // 24 bytes: text buffer (screen codes, $ff terminated)
+.label kd_now       = gv+84     // keys: bit 0 left arrow, 1 = 8, 2 = 9, 3 = 0 (the digits 1-7 are kb_now)
+.label kd_prev      = gv+85
+.label keyraw2      = gv+106    // 4 bytes: left arrow, 8, 9, 0 down now
 .label hcol         = gv+80
 .label hval         = gv+81
 .label tbmp_hi      = gv+82
