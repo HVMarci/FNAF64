@@ -479,19 +479,19 @@ hc_next:
         bne hc_bar
         lda #1
         sta hval
-        jsr TimeText
+        jsr TimeText            // clock and night at the top right, the REC sign (sprite) below them
         :SetBuf()
         ldx #29
-        ldy #4
+        ldy #0
         jsr DrawM
         :SetStr(str_night)
         ldx #25
-        ldy #5
+        ldy #1
         jsr DrawM
         jsr NightText
         :SetBuf()
         ldx #37
-        ldy #5
+        ldy #1
         jmp DrawM
 
 //------------------------------------------------------------------------------
