@@ -1135,8 +1135,8 @@ rq_go:  ldx #1
         rts
 
 // ---- power outage ----
-// stage 0 static + load dark office, 1 dissolve, 2 darkness (footsteps), 3 static + load Freddy,
-// 4 dissolve, 5 Freddy in the doorway (music box, flickering eyes), 6 blackout, then the scare
+// stage 0 static + load dark office, 1 dissolve (Freddy's picture loads into the camera buffer meanwhile), 2 darkness (footsteps),
+// 5 Freddy in the doorway (music box, flickering eyes), 6 blackout (the scare pictures load), then the scare
 sm_power:
         lda #0
         sta sprmode
@@ -1164,7 +1164,11 @@ pw_p1:  cmp #1
         lda #LAY_OFFICE
         sta revlay
         jsr RevealRows
-        inc tcnt
+        lda tcnt
+        bne pw_1b
+        lda #DI_DARKF           // the dark office is on its way up: load Freddy's picture into the camera buffer now
+        jsr ReqLoad
+pw_1b:  inc tcnt
         lda tcnt
         cmp #9
         bcc pw_ret
@@ -1177,54 +1181,25 @@ pw_p1:  cmp #1
         sta ps_tm
         rts
 pw_p2:  cmp #2
-        bne pw_p3
+        bne pw_p5
         lda #LAY_OFFICE
         jsr SetAll
         jsr PowerSteps
         lda ps_tm
         bne pw_ret
-        lda #3
-        sta ps_stage
-        lda #0
-        sta tcnt
-        rts
-pw_p3:  cmp #3
-        bne pw_p4
-        lda #LAY_NOISE
-        jsr SetAll
-        lda tcnt
-        bne pw_3b
-        lda #DI_DARKF
-        jsr ReqLoad
-pw_3b:  inc tcnt
-        lda tcnt
-        cmp #8
-        bcc pw_ret
-        lda mbusy
+        lda mbusy               // (the picture is loaded long before, unless the darkness was very short)
         bne pw_ret
-        lda #4
-        sta ps_stage
-        lda #0
-        sta tcnt
-        rts
-pw_r2:  rts
-pw_p4:  cmp #4
-        bne pw_p5
-        lda #LAY_OFFICE
-        sta revlay
-        jsr RevealRows
-        inc tcnt
-        lda tcnt
-        cmp #9
-        bcc pw_r2
         lda #5
         sta ps_stage
+        lda #LAY_TITLE          // Freddy's picture is in the camera buffer: it simply appears
+        jsr SetAll
         lda #MEL_BOX            // Freddy's music box
         jsr MelStart
         jmp PickTime
+pw_r2:  rts
 pw_p5:  cmp #5
         bne pw_p6
-        lda #LAY_OFFICE
+        lda #LAY_TITLE
         jsr SetAll
         jsr Random              // eyes flicker: the picture blinks out now and then
         cmp #60
