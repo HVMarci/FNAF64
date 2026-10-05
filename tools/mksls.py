@@ -20,7 +20,7 @@ for k in ("IL0","IL1","IL2","IL3"):
     if os.environ.get(k): L.append("%s:\t%s" % (k, os.environ[k]))
 L.append("")
 L.append("<< bundle 0: code >>")
-for c in ("code1.prg", "code2.prg", "code3.prg", "code4.prg"):
+for c in ("code1.prg", "code2.prg", "code3.prg", "code4.prg", "code5.prg"):
     L.append("File:\t\"%s\"" % c)
 L.append("")
 L.append("<< bundle 1: disclaimer (bank 3, shown while everything else loads) >>")

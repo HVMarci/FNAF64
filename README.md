@@ -21,8 +21,8 @@ movement rules of the original, jumpscares, power outages, and six nights.
 * **Phone Guy**: an automatic call at the start of nights 1–5 – phone ring, subtitles and a synthesised
   mumble instead of speech (`M` mutes it),
 * SID sound effects, background hum, Freddy's music box and the 6 AM chime,
-* a **disclaimer screen** at boot (fan project, not connected to the original game, rights belong to Scott Cawthon; warns about flashing lights and jumpscares). It sits in bank 3 (`$c000` / `$e000`, free until `InitNoise` builds the noise screens there) and stays up while the title and the office assets load, for at least 6 s (timed with the CIA1 TOD clock; test builds skip the wait),
-* a title screen (from `assets/lobby.png`) with night selection, and the **newspaper** (`assets/newspaper.png`) before the first night as in the original (it fades in and out through the grey ramp, SPACE skips it),
+* a **disclaimer screen** at boot (fan project, not connected to the original game, rights belong to Scott Cawthon; warns about flashing lights and jumpscares). It sits in bank 3 (`$c000` / `$e000`, free until `InitNoise` builds the noise screens there) and stays up while the title and the office assets load, for at least 6 s (timed with the CIA1 TOD clock; test builds skip the wait and the fades). It fades in when it appears and out at the end; the display is then off while the noise is built, so the title's first visible frame is already glitching and noisy,
+* a title screen (from `assets/lobby.png`) with night selection, and the **newspaper** (`assets/newspaper.png`) before the first night as in the original (it fades in and out through the grey ramp, SPACE skips it). The night card ("12:00 AM"), the 5 AM / 6 AM cards and the disclaimer fade as well (`src/newsfade.asm`: the hires pictures fade through their colour cells; the code lives in its own segment Code5 at `$c840`, Foxy's run steps start at `$cb00`),
 * **night 7, the 20/20/20/20 custom night** (unlocked by beating night 6) and a **pause** key (`P`),
 * **saving to disk**: the reached night is written to the `.d64` after every night you beat, so the next start offers it again.
 

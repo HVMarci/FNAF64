@@ -25,7 +25,7 @@ FIXED = [
     ("grey bar screen", 0xdc00, 0xe000),
     ("noise bitmap (bank 3)", 0xe000, 0x10000),
 ]
-CODE_FILES = ("code1.prg", "code2.prg", "code3.prg", "code4.prg")
+CODE_FILES = ("code1.prg", "code2.prg", "code3.prg", "code4.prg", "code5.prg")
 TRANSIENT_BUNDLES = ("camera", "title", "jumpscare", "newspaper", "phone", "disclaimer")
 
 

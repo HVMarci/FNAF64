@@ -3,7 +3,7 @@
 //
 // The first picture of the run is the third picture of camera 2A (the hall with Foxy far away); it loads like every camera picture,
 // and the camera shows it instead of 1.png / 2.png as soon as Foxy sprints (game.asm WantFrame). Its bundle also brings the steps of
-// the run (tools/gen_assets.py gen_foxy_anim) into bank 3's noise memory ($e000-$fff9 and a few gaps in $c000-$cbff), which nothing may
+// the run (tools/gen_assets.py gen_foxy_anim) into bank 3's noise memory ($e000-$fff9 and a gap at $cb00-$cbff), which nothing may
 // show while the run plays. Each step is a list of spans of cells (count, cell index, bitmap, screen, colour bytes; $ff = continue at
 // the address that follows, 0 = end) that the main loop copies into the camera buffer. When the run is over (or the picture is left
 // early) the noise bitmap is rebuilt. The arrival (game.asm FoxyArrive) is held back while he runs and comes at once when he is gone;

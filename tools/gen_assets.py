@@ -171,7 +171,7 @@ FA_GAP = 0                                                      # unchanged cell
 FA_MAXSPAN = 31
 # where the steps may live: (start, end exclusive). $e000-$fff9 is the noise bitmap (the vectors follow at $fffa), $c840 is free
 # (the noise screens at $c000 / $c400 stay: they would show as coloured garbage in the static while the steps load)
-FA_MEM = [(0xe000, 0xfffa), (0xc840, 0xcc00)]
+FA_MEM = [(0xe000, 0xfffa), (0xcb00, 0xcc00)]    # (0xc840-0xcaff holds code5: the fades)
 
 
 def fa_pick(r, g, b):

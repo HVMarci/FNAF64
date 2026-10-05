@@ -295,6 +295,8 @@
 .const J_LOAD       = 1
 .const J_CARD       = 2
 .const J_TITLETXT   = 3
+.const J_NFADE      = 4         // newspaper fade: set the colour level in marg
+.const J_NFINIT     = 5         // newspaper fade: copy its colours, start black
 // card types
 .const CARD_NIGHT   = 0
 .const CARD_5AM     = 1

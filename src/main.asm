@@ -11,10 +11,12 @@
 .segmentdef Code2 [start=$4c00, max=$5fff]
 .segmentdef Code3 [start=$ad00, max=$bcff]   // bank 2 after the patches ($8000-$ac4b); $bd00 is the save page, $be40.. holds the fan frames
 .segmentdef Code4 [start=$4400, max=$47bf]   // $47c0.. is the subtitle row screen RAM
+.segmentdef Code5 [start=$c840, max=$caff]   // bank 3 between the sprite images and Foxy's run steps ($cb00..)
 .file [name="code1.prg", segments="Code1"]
 .file [name="code2.prg", segments="Code2"]
 .file [name="code3.prg", segments="Code3"]
 .file [name="code4.prg", segments="Code4"]
+.file [name="code5.prg", segments="Code5"]
 
 //==============================================================================
 .segment Code1
@@ -47,6 +49,9 @@ Start:
         sta $dc08               // tenths: starts it
 #endif
         jsr Sparkle_LoadNext    // bundle 1: the disclaimer (hires, bank 3: screen $c000, bitmap $e000 - built over by InitNoise later)
+#if !TEST
+        jsr DiscPrep            // it starts black ...
+#endif
         lda #$3f                // show it: bank 3
         sta $dd02
         lda #$08
@@ -54,6 +59,9 @@ Start:
         sta $d016
         lda #$3b
         sta $d011
+#if !TEST
+        jsr DiscFadeIn          // ... and fades in
+#endif
 
         jsr Sparkle_LoadNext    // bundle 2: title screen (hires, camera buffer), loads behind the disclaimer
         jsr Sparkle_LoadNext    // bundle 3: office bitmap, patches, sprites
@@ -86,10 +94,13 @@ Start:
         bne !-
         dec zt
         bne !-
-!:
+!:      jsr DiscFadeOut
 #endif
 DiscDone:
-        jsr BuildTables         // the title screen: bank 1 (InitNoise builds over the disclaimer)
+        lda #$0b                // display off while the noise is built over the disclaimer; the first frame tick (StateMachine,
+        sta $d011               // BuildTables, ShakeUpdate) switches it on with the title already glitching
+        ldx #2                  // (a frame boundary first: the picture of the frame in progress is still drawn)
+        jsr WaitFrames
         jsr InitNoise
         jsr InitSprites
         jsr SndInit
@@ -765,15 +776,18 @@ sm_card:
 cd_0b:  inc tcnt
         lda tcnt
         cmp #8
-        bcc cd_ret
+        bcc cd_r0
         lda mbusy
-        bne cd_ret
+        bne cd_r0
         lda #1
         sta tph
         lda #0
         sta tcnt
+        lda #4                  // the card fades in from black
+        jsr CardFade
         lda #DI_OFFICE
         jmp ReqLoad
+cd_r0:  rts
 cd_p1:  cmp #1
         bne cd_p2
         lda #LAY_TITLE
@@ -782,7 +796,8 @@ cd_p1:  cmp #1
         cmp #150
         bcs !+
         inc tcnt
-!:      lda ph_loaded           // once the office is in, fetch tonight's call text
+!:      jsr CardFadeIn
+        lda ph_loaded           // once the office is in, fetch tonight's call text
         bne cd_pl
         lda tcnt
         cmp #8
@@ -802,7 +817,7 @@ cd_pl:  lda tcnt
         bcc cd_ret
         lda mbusy
         bne cd_ret
-        lda #2
+        lda #3                  // the card fades out, then the dissolve into the office
         sta tph
         lda #0
         sta tcnt
@@ -811,7 +826,10 @@ cd_pl:  lda tcnt
         lda #1                  // the night starts: clock, power and animatronics run
         sta g_act
         jmp PhoneStart
-cd_p2:  lda #LAY_OFFICE
+cd_p2:  cmp #3
+        bne !+
+        jmp CardOutPhase
+!:      lda #LAY_OFFICE
         sta revlay
         jsr RevealRows
         inc tcnt
@@ -1594,6 +1612,8 @@ sm_news:
         jsr SetAll
         lda tcnt
         bne nw_0b
+        lda #$ff
+        sta nf_cur              // (the picture's colours are not copied yet)
         lda #DI_NEWS
         jsr ReqLoad
 nw_0b:  inc tcnt
@@ -1602,7 +1622,8 @@ nw_0b:  inc tcnt
         bcc nw_ret
         lda mbusy
         bne nw_ret
-        jsr NewsFadeInit        // still static on screen: the picture starts black
+        jsr NewsPrep            // the picture starts black (the main loop makes the copy of its colours)
+        bcs nw_ret
         lda #1
         sta tph
         lda #0
@@ -1666,6 +1687,8 @@ sm_win:
         jsr ReqCard
         jmp wn_sb
 wn_news:
+        lda #$ff
+        sta nf_cur
         lda #DI_NEWS
         jsr ReqLoad
 wn_sb:  inc tcnt
@@ -1674,11 +1697,9 @@ wn_sb:  inc tcnt
         bcc wn_ret
         lda mbusy
         bne wn_ret
-        ldx tph
-        lda wn_kind,x
-        bpl !+
-        jsr NewsFadeInit        // newspaper: still static on screen, the picture starts black
-!:      inc tph
+        jsr WinPrep             // the card / newspaper starts black
+        bcs wn_ret
+        inc tph
         lda #0
         sta tcnt
 wn_ret: rts
@@ -1707,13 +1728,9 @@ wn_show:
         cmp #250
         bcs !+
         inc tcnt
-!:      ldx tph
-        cpx #5
-        bne !+
-        lda wn_time,x           // the newspaper fades in and out
-        jsr NewsFade
+!:      jsr WinFade             // 5 AM fades in, 6 AM out, the newspaper both
         ldx tph
-!:      lda tcnt
+        lda tcnt
         cmp wn_time,x
         bcc wn_ret
         // this card is done: which one comes next?
@@ -2274,11 +2291,20 @@ MainJobs:
         beq mj_load
         cmp #J_CARD
         beq mj_card
+        cmp #J_NFADE
+        beq mj_nf
+        cmp #J_NFINIT
+        beq mj_nfi
         jsr DrawTitleTxt        // J_TITLETXT: "NIGHT n" on the title picture
         jmp mj_done
 mj_card:
         lda marg
         jsr DrawCard
+        jmp mj_done
+mj_nf:  lda marg
+        jsr NewsFadeSet
+        jmp mj_done
+mj_nfi: jsr NewsFadeInit
         jmp mj_done
 mj_load:
         lda marg
@@ -2872,7 +2898,6 @@ rsr_lo:     .fill 22, <(OFF_SCR + (i+3)*40 + 29)
 rsr_hi:     .fill 22, >(OFF_SCR + (i+3)*40 + 29)
 
 .import source "pause.asm"
-.import source "newsfade.asm"
 .segment Code1                  // (Code3 has no room for the test harness any more)
 .import source "foxyrun.asm"
 .segment Code3
@@ -2884,6 +2909,12 @@ rsr_hi:     .fill 22, >(OFF_SCR + (i+3)*40 + 29)
 #if TEST
 .import source "test.asm"
 #endif
+
+//==============================================================================
+// Fades (newspaper, text cards, disclaimer): their own segment in bank 3
+//==============================================================================
+.segment Code5
+.import source "newsfade.asm"
 
 //==============================================================================
 // Foxy's jumpscare: its own file (foxy.prg), loaded with his bundle into the door patch area
