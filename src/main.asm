@@ -1976,7 +1976,7 @@ SpriteUpdate:
 spr_cam:
         lda #38                 // REC indicator (x = 294 -> MSB set)
         sta $d000
-        lda #82                 // (picture y 32, below the clock)
+        lda #66                 // (picture y 16, right below the clock)
         sta $d001
         lda #2
         sta $d027

@@ -114,7 +114,7 @@ def draw_plate(cv, col0, row0, cols, rows, color=0):
 
 # Runtime HUD fields in the camera view (cell coordinates; src/main.asm draws text there).
 # They are baked as empty black plates so the runtime only has to write glyph pixels.
-CAM_HUD_PLATES = [(29, 4, 10, 1), (25, 5, 14, 1), (1, 22, 23, 2)]     # col, row, cols, rows
+CAM_HUD_PLATES = [(29, 0, 10, 1), (25, 1, 14, 1), (1, 22, 23, 2)]     # col, row, cols, rows
 
 
 def hud_overlay(cv, camidx):

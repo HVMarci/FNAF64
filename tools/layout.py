@@ -1,5 +1,5 @@
 """Shared layout constants (REC indicator position in screen pixels, 0,0 = top-left of 320x200 area)."""
-REC_POS = (270, 32)
+REC_POS = (270, 16)
 
 
 # ------------------------------------------------------------------ memory layout (shared by check_layout.py, memmap.py)
