@@ -211,6 +211,10 @@
 .label gv           = $0f00
 .label g_night      = gv+0      // 1..7
 .label g_maxnight   = gv+1
+.const NF_STEP      = 8         // newspaper fade: frames per level (NewsFade shifts by 3)
+.label nf_cur        = gv+242    // newspaper fade level (src/newsfade.asm)
+.label nf_lo         = $0bba     // 16 + 16 bytes: nibble tables of the current fade level
+.label nf_hi         = $0bca
 .label g_savereq    = gv+240    // 1: write the reached night to the disk before the next load
 .label jshake       = gv+241    // 1: the jumpscare shakes the screen vertically (ShakeUpdate)
 .label g_act        = gv+2      // 1 while the night clock and the animatronics run

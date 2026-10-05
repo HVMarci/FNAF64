@@ -1602,6 +1602,7 @@ nw_0b:  inc tcnt
         bcc nw_ret
         lda mbusy
         bne nw_ret
+        jsr NewsFadeInit        // still static on screen: the picture starts black
         lda #1
         sta tph
         lda #0
@@ -1613,11 +1614,20 @@ nw_p1:  lda #LAY_TITLE
         cmp #250
         bcs nw_go
         inc tcnt
+        lda #250
+        jsr NewsFade
+        lda tcnt
         cmp #60
         bcc nw_ret
         lda ev
         and #EV_CAM
         beq nw_ret
+        lda tcnt                // SPACE: straight into the fade-out
+        cmp #250-5*NF_STEP
+        bcs nw_ret
+        lda #250-5*NF_STEP
+        sta tcnt
+        rts
 nw_go:  lda #M_CARD
         sta mode
         lda #0
@@ -1664,7 +1674,11 @@ wn_sb:  inc tcnt
         bcc wn_ret
         lda mbusy
         bne wn_ret
-        inc tph
+        ldx tph
+        lda wn_kind,x
+        bpl !+
+        jsr NewsFadeInit        // newspaper: still static on screen, the picture starts black
+!:      inc tph
         lda #0
         sta tcnt
 wn_ret: rts
@@ -1694,7 +1708,12 @@ wn_show:
         bcs !+
         inc tcnt
 !:      ldx tph
-        lda tcnt
+        cpx #5
+        bne !+
+        lda wn_time,x           // the newspaper fades in and out
+        jsr NewsFade
+        ldx tph
+!:      lda tcnt
         cmp wn_time,x
         bcc wn_ret
         // this card is done: which one comes next?
@@ -2853,6 +2872,7 @@ rsr_lo:     .fill 22, <(OFF_SCR + (i+3)*40 + 29)
 rsr_hi:     .fill 22, >(OFF_SCR + (i+3)*40 + 29)
 
 .import source "pause.asm"
+.import source "newsfade.asm"
 .segment Code1                  // (Code3 has no room for the test harness any more)
 .import source "foxyrun.asm"
 .segment Code3
