@@ -110,11 +110,12 @@ SndTick:
 st_amb:
         lda scream_t
         beq st_am0
-        lda frame               // wail: voice 1 wobbles
-        and #$0f
-        asl
-        adc #$58
+        jsr Random              // static / shriek: voice 1 (noise) and voice 2 (pulse) jump to a random high pitch every frame
+        ora #$40
         sta $d401
+        jsr Random
+        ora #$60
+        sta $d408
         dec scream_t
         bne st_sr
         jmp ScreamEnd
@@ -481,7 +482,7 @@ amb_fl:     .byte $00, $a7, $00
 amb_fh:     .byte $00, $06, $30
 buzz_fl:    .byte $a7, $b9
 
-// ---- jumpscare scream: as loud as the SID goes. Voice 3 noise (the effect), voice 2 noise and voice 1 a shrill sawtooth, all at
+// ---- jumpscare scream: as loud as the SID goes. Voice 3 noise (the effect), voice 1 noise and voice 2 a pulse that screeches (random high pitch every frame), all at
 // full sustain and nothing routed through the filter; the ambient sounds stay off until ScreamEnd.
 .segment Code3
 SndScream:
@@ -489,28 +490,23 @@ SndScream:
         jsr SndStart
         lda #0
         sta $d417               // no filtered voice
-        sta $d40c               // voice 2: noise, no attack, full sustain
+        sta $d40c               // voice 2: pulse, no attack, full sustain
+        sta $d405               // voice 1: noise, no attack, full sustain
+        sta $d407
+        sta $d400
         lda #$f0
         sta $d40d
-        lda #0
-        sta $d407
+        sta $d406
         lda #$40
         sta $d408
-        lda #$80
-        sta $d40b
-        lda #$81
-        sta $d40b
-        lda #0                  // voice 1: sawtooth
-        sta $d405
-        lda #$f0
-        sta $d406
-        lda #0
-        sta $d400
-        lda #$64
         sta $d401
-        lda #$20
+        lda #$40                // voice 2: pulse (the pitch is randomised every frame by SndTick)
+        sta $d40b
+        lda #$41
+        sta $d40b
+        lda #$80                // voice 1: noise
         sta $d404
-        lda #$21
+        lda #$81
         sta $d404
         lda #150
         sta scream_t
