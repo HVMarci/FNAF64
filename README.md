@@ -11,6 +11,8 @@ movement rules of the original, jumpscares, power outages, and six nights.
 * **clock (12 AM – 6 AM), power and usage**, power outage sequence, **jumpscares**, game over,
   6 AM win screen, night 1–6 with the original AI level tables,
 * camera **static / noise / signal glitches**, door slide animation, screen shake, lamp flicker,
+* **jumpscares**: Freddy, Bonnie and Chica flip between their two pictures every 0.1 s for one second (both frames are loaded
+  beforehand, the second one in the office buffer, so nothing loads in between); the title screen has the jitter / static-bar glitch,
 * **Phone Guy**: an automatic call at the start of nights 1–5 – phone ring, subtitles and a synthesised
   mumble instead of speech (`M` mutes it),
 * SID sound effects, background hum, Freddy's music box and the 6 AM chime,

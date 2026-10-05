@@ -636,6 +636,7 @@ sm_title:
         sta sprmode
         lda #LAY_TITLE
         jsr SetAll
+        jsr TitleGlitch
         lda evdigit             // 1..7 choose an unlocked night
         beq st_nodig
         cmp g_night
@@ -1262,11 +1263,66 @@ PowerSteps:
         jmp SndStart
 !:      rts
 
-// ---- jumpscare: static while frame 0 loads, shake it, static while frame 1 loads, shake it
+// ---- jumpscare. Freddy / Bonnie / Chica: static while both frames load (one bundle: frame 0 in the camera buffer,
+// frame 1 in the office buffer), then the two pictures flip every 5 frames (0.1 s) for 10 flips (1 s), then static.
+// Foxy still uses the old sequence: static while frame 0 loads, show it, static while frame 1 loads, show it.
 sm_scare:
         lda #0
         sta sprmode
         lda sc_ph
+        cmp #4
+        bne !+
+        jmp sx_p4
+!:      cmp #5
+        beq sn_flip
+        ldx g_who
+        cpx #3
+        beq sx_old
+        lda #LAY_NOISE          // phase 0: both frames load behind static
+        jsr SetAll
+        lda tcnt
+        bne sn_0b
+        lda g_who
+        asl
+        clc
+        adc #DI_JS
+        jsr ReqLoad
+sn_0b:  inc tcnt
+        lda tcnt
+        cmp #4
+        bcc sn_ret
+        lda mbusy
+        bne sn_ret
+        lda #5
+        sta sc_ph
+        lda #0
+        sta tcnt
+        sta tph                 // flips done
+        lda #SFX_SCREAM         // the scream starts with the picture
+        jmp SndStart
+sn_ret: rts
+sn_flip:
+        lda tph
+        and #1
+        tax
+        lda js_flip,x
+        jsr SetAll
+        inc tcnt
+        lda tcnt
+        cmp #5
+        bcc sn_ret
+        lda #0
+        sta tcnt
+        inc tph
+        lda tph
+        cmp #10
+        bcc sn_ret
+        lda #4
+        sta sc_ph
+        lda #0
+        sta tcnt
+        rts
+sx_old: lda sc_ph
         bne sx_p1
         lda #LAY_NOISE
         jsr SetAll
@@ -1348,23 +1404,24 @@ sx_p4:  lda #LAY_NOISE
         rts
 
 .segment Code2
-ScareShow:                      // picture with per-row jitter and static blips
-        ldx g_who
-        lda js_layer,x
-        jsr SetAll
+ScareShow:                      // Foxy's picture (hires, camera buffer), no effects
+        lda #LAY_TITLE
+        jmp SetAll
+
+TitleGlitch:                    // per-row jitter and static blips over the title picture
         ldx #24
-ss_lp:  jsr Random
+tg_lp:  jsr Random
         and #7
         sta rowxs,x
         jsr Random
         cmp #14
-        bcs ss_nx
+        bcs tg_nx
         lda #LAY_NOISE
         sta rowlayer,x
         lda #0
         sta rowxs,x
-ss_nx:  dex
-        bpl ss_lp
+tg_nx:  dex
+        bpl tg_lp
         rts
 
 // ---- game over card
@@ -1995,6 +2052,9 @@ mw:     lda frame
         cmp lastf
         beq mw
         sta lastf
+        lda mode
+        cmp #M_SCARE
+        beq mw_scare
         ldx #0
         jsr DoorStep
         ldx #1
@@ -2004,6 +2064,7 @@ mw:     lda frame
         ldx #1
         jsr LightRender
         jsr ButtonRender
+mw_scare:
         jsr FanStep
         jsr RollStep
         jsr SubDraw
@@ -2548,7 +2609,7 @@ fan_sh:     .fill 5, >(OFF_SCR + (11+i)*40 + fan_col.get(i))
 fan_n8:     .fill 5, fan_cnt.get(i)*8
 fan_n1:     .fill 5, fan_cnt.get(i)
 
-js_layer:   .byte LAY_TITLE, LAY_TITLE, LAY_TITLE, LAY_TITLE   // Freddy, Bonnie, Chica, Foxy (all hires)
+js_flip:    .byte LAY_TITLE, LAY_OFFICE                       // jumpscare frame 0 (camera buffer) / frame 1 (office buffer), both hires
 ptime_tab:  .byte 50, 100, 150, 200
 grp_start:  .byte 0,3,5,6,8,9,10
 grp_len:    .byte 3,2,1,2,1,1,1

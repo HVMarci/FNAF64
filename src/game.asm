@@ -850,10 +850,15 @@ StartScare:                     // A = who: 0 Freddy, 1 Bonnie, 2 Chica, 3 Foxy
         sta tph
         sta sprmode
         sta g_pkill
+        sta shake
         lda #M_SCARE
         sta mode
-        lda #SFX_SCREAM
+        lda g_who
+        cmp #3
+        bne !+
+        lda #SFX_SCREAM         // Foxy: the scream starts at once; the others start it with the picture (sm_scare)
         jmp SndStart
+!:      rts
 
 StartPowerOut:
         jsr PhoneStop

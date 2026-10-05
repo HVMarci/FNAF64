@@ -48,13 +48,20 @@ for i in range(len(CAMS)):
         L.append("File:\t\"gen/cam_%02d_%d.col\"\td800" % (i, f))
         L.append("")
         gid += 1
-for who in range(4):
-    for f in range(2):
-        L.append("<< jumpscare %d frame %d >>" % (who, f))
-        L.append("DirIndex:\t%02x" % (0x40 + who * 2 + f))
-        L.append("File:\t\"gen/js_%d_%d.bmp\"\t6000" % (who, f))
-        L.append("File:\t\"gen/js_%d_%d.scr\"\t4000" % (who, f))
-        L.append("")
+for who in range(3):            # Freddy, Bonnie, Chica: both frames in one bundle, so the game can flip between them without loading.
+    L.append("<< jumpscare %d both frames >>" % who)   # frame 1 goes into the office buffer (reloaded when the next night starts)
+    L.append("DirIndex:\t%02x" % (0x40 + who * 2))
+    L.append("File:\t\"gen/js_%d_0.bmp\"\t6000" % who)
+    L.append("File:\t\"gen/js_%d_0.scr\"\t4000" % who)
+    L.append("File:\t\"gen/js_%d_1.bmp\"\t2000" % who)
+    L.append("File:\t\"gen/js_%d_1.scr\"\t0400" % who)
+    L.append("")
+for f in range(2):              # Foxy: still one frame per bundle
+    L.append("<< jumpscare 3 frame %d >>" % f)
+    L.append("DirIndex:\t%02x" % (0x46 + f))
+    L.append("File:\t\"gen/js_3_%d.bmp\"\t6000" % f)
+    L.append("File:\t\"gen/js_3_%d.scr\"\t4000" % f)
+    L.append("")
 for n, (fn, di) in enumerate((("dark", 0x48), ("darkfreddy", 0x49))):
     L.append("<< %s office >>" % fn)
     L.append("DirIndex:\t%02x" % di)
