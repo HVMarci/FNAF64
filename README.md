@@ -198,9 +198,9 @@ Freddy's, Bonnie's and Chica's jumpscares are two hires pictures each (`assets/j
 
 **Foxy's run in the west hall** (`src/foxyrun.asm`): camera 2A has a third picture, the hall with Foxy far away (the first frame of the run), which
 `WantFrame` picks as soon as Foxy sprints. Loading one picture per animation frame would take about half a second each, so the rest of the run is
-played from RAM: the steps (the cells that change from one animation frame to the next, as spans of bitmap / screen / colour bytes, 7 steps,
-about 9 KB) come with the first picture's bundle and sit in **bank 3's noise memory** (`$e000-$fff9`, `$c840-$cbff`), which nothing may show
-while the run plays; the main loop copies a step into the camera buffer every 4 frames. When the run ends or the picture is left early
+played from RAM: the steps (the cells that change from one animation frame to the next, as spans of bitmap / screen / colour bytes, 6 steps,
+about 8 KB) come with the first picture's bundle and sit in **bank 3's noise memory** (`$e000-$fff9`, `$c840-$cbff`), which nothing may show
+while the run plays; the main loop copies a step into the camera buffer every 3 frames. When the run ends or the picture is left early
 `NoiseRestore` fills the noise bitmap with random bytes again. Careful there: the frame tick shares some zero-page temporaries (`zsx`, `zt2`, ...)
 with the main loop, so the restore only uses `zdb`, X and Y. After the run Foxy arrives at once (`fx_run`, which the run holds back while it plays).
 

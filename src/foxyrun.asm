@@ -9,8 +9,8 @@
 // early) the noise bitmap is rebuilt. The arrival (game.asm FoxyArrive) is held back while he runs and comes at once when he is gone;
 // after that the AI moves him back or he gets the player.
 //==============================================================================
-.const FR_HOLD      = 10        // frames the first picture stays
-.const FR_RATE      = 4         // frames per step
+.const FR_HOLD      = 6         // frames the first picture stays
+.const FR_RATE      = 3         // frames per step
 .label fp_p         = $6b       // 2: the step data (zero page: hud.asm's temporaries, free outside HudRefresh)
 .label fp_b         = $6d       // 2: destination bitmap
 .label fp_s         = $77       // 2: destination screen RAM

@@ -163,7 +163,7 @@ def kitchen_canvas():
 # 160 x 200 multicolor canvas and painted over 1.png; the HUD rows never change. A step is the list of cells that change from the
 # previous one (spans of cells: count, cell index, bitmap bytes, screen bytes, colour bytes). All steps come with the first picture's
 # bundle and sit in bank 3's noise memory, which is free while the run plays (src/foxyrun.asm plays them from there and rebuilds the noise).
-FA_FRAMES = [0, 6, 10, 14, 17, 20, 24]                      # original frames; after the last one the hall is empty again
+FA_FRAMES = [0, 8, 12, 16, 20, 24]                      # original frames; after the last one the hall is empty again
 FA_THR = 54                                                     # colour difference (sum of channels) that makes a pixel Foxy's
 FA_GAIN = 2.6                                                   # the originals are very dark
 FA_ROWS = (2, 22)                                               # text rows that may change
