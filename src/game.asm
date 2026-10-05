@@ -844,7 +844,6 @@ StartScare:                     // A = who: 0 Freddy, 1 Bonnie, 2 Chica, 3 Foxy
         lda #0
         sta g_act
         sta can_load
-        sta blank
         sta sc_ph
         sta tcnt
         sta tph

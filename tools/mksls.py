@@ -48,20 +48,13 @@ for i in range(len(CAMS)):
         L.append("File:\t\"gen/cam_%02d_%d.col\"\td800" % (i, f))
         L.append("")
         gid += 1
-for who in range(3):            # Freddy, Bonnie, Chica: both frames in one bundle, so the game can flip between them without loading.
-    L.append("<< jumpscare %d both frames >>" % who)   # frame 1 goes into the office buffer (reloaded when the next night starts)
-    L.append("DirIndex:\t%02x" % (0x40 + who * 2))
-    L.append("File:\t\"gen/js_%d_0.bmp\"\t6000" % who)
-    L.append("File:\t\"gen/js_%d_0.scr\"\t4000" % who)
-    L.append("File:\t\"gen/js_%d_1.bmp\"\t2000" % who)
-    L.append("File:\t\"gen/js_%d_1.scr\"\t0400" % who)
-    L.append("")
-for f in range(2):              # Foxy: still one frame per bundle
-    L.append("<< jumpscare 3 frame %d >>" % f)
-    L.append("DirIndex:\t%02x" % (0x46 + f))
-    L.append("File:\t\"gen/js_3_%d.bmp\"\t6000" % f)
-    L.append("File:\t\"gen/js_3_%d.scr\"\t4000" % f)
-    L.append("")
+for who in range(4):            # frame 0 loads into the camera buffer while the office is still shown; frame 1 of Freddy / Bonnie / Chica into the
+    for f in range(2):          # office buffer (hidden behind black; reloaded when the next night starts), so the game can then flip between them
+        L.append("<< jumpscare %d frame %d%s >>" % (who, f, " (office buffer)" if f and who < 3 else ""))
+        L.append("DirIndex:\t%02x" % (0x40 + who * 2 + f))
+        L.append("File:\t\"gen/js_%d_%d.bmp\"\t%s" % (who, f, "2000" if f and who < 3 else "6000"))
+        L.append("File:\t\"gen/js_%d_%d.scr\"\t%s" % (who, f, "0400" if f and who < 3 else "4000"))
+        L.append("")
 for n, (fn, di) in enumerate((("dark", 0x48), ("darkfreddy", 0x49))):
     L.append("<< %s office >>" % fn)
     L.append("DirIndex:\t%02x" % di)
@@ -73,7 +66,7 @@ for n in range(1, 6):
     L.append("DirIndex:\t%02x" % (0x4f + n))
     L.append("File:\t\"gen/phone_%d.bin\"\t4a40" % n)
     L.append("")
-L.append("<< title head shift >>")      # the title with only Freddy's head moved, in the office buffer (the glitch picks it per row)
+L.append("<< title head shift (office buffer) >>")      # the title with only Freddy's head moved, in the office buffer (the glitch picks it per row)
 L.append("DirIndex:\t4b")
 L.append("File:\t\"gen/title_h.bmp\"\t2000")
 L.append("File:\t\"gen/title_h.scr\"\t0400")

@@ -1265,9 +1265,11 @@ PowerSteps:
         jmp SndStart
 !:      rts
 
-// ---- jumpscare. Freddy / Bonnie / Chica: static while both frames load (one bundle: frame 0 in the camera buffer,
-// frame 1 in the office buffer), then the two pictures flip every 5 frames (0.1 s) for 10 flips (1 s), then static.
-// Foxy still uses the old sequence: static while frame 0 loads, show it, static while frame 1 loads, show it.
+.segment Code3                  // (Code1 and Code2 are nearly full)
+// ---- jumpscare. Frame 0 loads into the camera buffer while the office stays on screen (a power-out blackout stays black),
+// then the screen goes black while frame 1 loads. Freddy / Bonnie / Chica then flip between the two pictures every 5 frames
+// (0.1 s) for 10 flips (1 s) and cut to static; frame 1 sits in the office buffer, so nothing loads between flips.
+// Foxy still uses the old sequence: show frame 0 (40 frames), black while frame 1 loads, show it (60 frames), static.
 sm_scare:
         lda #0
         sta sprmode
@@ -1277,10 +1279,13 @@ sm_scare:
         jmp sx_p4
 !:      cmp #5
         beq sn_flip
+        cmp #6
+        beq sn_load2
         ldx g_who
         cpx #3
-        beq sx_old
-        lda #LAY_NOISE          // phase 0: both frames load behind static
+        bne !+
+        jmp sx_old
+!:      lda #LAY_OFFICE         // phase 0: frame 0 loads, the office stays up
         jsr SetAll
         lda tcnt
         bne sn_0b
@@ -1295,6 +1300,26 @@ sn_0b:  inc tcnt
         bcc sn_ret
         lda mbusy
         bne sn_ret
+        lda #6
+        sta sc_ph
+        lda #0
+        sta tcnt
+sn_ret: rts
+sn_load2:                       // phase 6: black while frame 1 loads (into the office buffer)
+        jsr ScareBlank
+        lda tcnt
+        bne sn_2b
+        lda g_who
+        asl
+        clc
+        adc #DI_JS+1
+        jsr ReqLoad
+sn_2b:  inc tcnt
+        lda tcnt
+        cmp #4
+        bcc sn_ret
+        lda mbusy
+        bne sn_ret
         lda #5
         sta sc_ph
         lda #0
@@ -1302,8 +1327,9 @@ sn_0b:  inc tcnt
         sta tph                 // flips done
         lda #SFX_SCREAM         // the scream starts with the picture
         jmp SndStart
-sn_ret: rts
 sn_flip:
+        lda #0
+        sta blank               // display on
         lda tph
         and #1
         tax
@@ -1326,7 +1352,7 @@ sn_flip:
         rts
 sx_old: lda sc_ph
         bne sx_p1
-        lda #LAY_NOISE
+        lda #LAY_OFFICE         // the office stays up while frame 0 loads
         jsr SetAll
         lda tcnt
         bne sx_0b
@@ -1360,8 +1386,7 @@ sx_p1:  cmp #1
         rts
 sx_p2:  cmp #2
         bne sx_p3
-        lda #LAY_NOISE
-        jsr SetAll
+        jsr ScareBlank
         lda tcnt
         bne sx_2b
         lda g_who
@@ -1407,6 +1432,14 @@ sx_p4:  lda #LAY_NOISE
 
 .segment Code2
 ScareShow:                      // Foxy's picture (hires, camera buffer), no effects
+        lda #0
+        sta blank               // display on
+        lda #LAY_TITLE
+        jmp SetAll
+
+ScareBlank:                     // black screen while the jumpscare pictures load (no static before the scare)
+        lda #1
+        sta blank
         lda #LAY_TITLE
         jmp SetAll
 

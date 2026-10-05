@@ -55,7 +55,7 @@ def collect(sls_name=None):
         m = re.match(r'File:\t"([^"]+)"\t([0-9a-f]+)', line)
         if m:
             if "dark" in bundle: continue        # replaces the office picture on purpose
-            if ("both frames" in bundle or "head shift" in bundle) and int(m.group(2), 16) in (0x2000, 0x0400): continue   # jumpscare frame 2 / title head shift: the office buffer, reloaded for the next night
+            if "office buffer" in bundle and int(m.group(2), 16) in (0x2000, 0x0400): continue   # jumpscare frame 2 / title head shift: the office buffer, reloaded for the next night
             n = os.path.getsize(os.path.join(B, m.group(1)))
             a = int(m.group(2), 16)
             if any(k in bundle for k in TRANSIENT_BUNDLES):
