@@ -137,9 +137,9 @@ def hud_overlay(cv, camidx):
     # the map, drawn over the camera picture
     m = [row[:] for row in MAP_IDX]
     bx, by = MAP_BTNS[camidx]
-    for y in range(by, by + MAP_BTN_H):         # selected: green button, black key label
+    for y in range(by, by + MAP_BTN_H):         # selected: green button, the key label stays white
         for x in range(bx, bx + MAP_BTN_W):
-            m[y][x] = {11: 5, 1: 0}.get(m[y][x], m[y][x])
+            m[y][x] = {11: 5}.get(m[y][x], m[y][x])
     for y in range(200):
         for x in range(160):
             c = m[y][x]
