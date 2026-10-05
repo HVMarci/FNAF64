@@ -1348,6 +1348,7 @@ sn_flip:
         rts
 sx_p4:  lda #0
         sta jshake
+        sta blank               // the static is never black
         lda #LAY_NOISE
         jsr SetAll
         inc tcnt
@@ -1363,9 +1364,15 @@ sx_p4:  lda #0
         rts
 
 ScareJolt:                      // A = layer for every row, shifted sideways by a random 0-7 pixels; ShakeUpdate adds the vertical shake
-        jsr SetAll
+        jsr SetAll              // (also at random a black frame: display off, black border)
         lda #1
         sta jshake
+        jsr Random
+        cmp #44                 // 44/256: about 1 frame in 6 is black
+        lda #0
+        rol
+        eor #1                  // C set (>= 44) -> 0, else 1
+        sta blank
         jsr Random
         and #7
         ldx #24
