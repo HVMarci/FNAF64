@@ -562,7 +562,7 @@ LaughSyl:                       // start syllable lau_i-1
 //              (frames sounding, frames of silence after it, sustain / release)
 lau_on:  .byte 11, 10,  9,  9,  6,  8,  6, 0
 lau_gap: .byte 10, 21,  8,  9, 10, 12, 12
-lau_sr:  .byte $f6, $f6, $e6, $d6, $c6, $b6, $a8
+lau_sr:  .byte $86, $86, $76, $76, $66, $66, $58      // sustain levels: half of full volume
 
 LaughV2:                        // voice 2 follows the laugh's pitch, a little higher (a slow, rough beat), and is released with voice 3
         lda mel_id
