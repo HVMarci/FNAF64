@@ -110,12 +110,22 @@ SndTick:
 st_amb:
         lda scream_t
         beq st_am0
-        jsr Random              // static / shriek: voice 1 (noise) and voice 2 (pulse) jump to a random high pitch every frame
-        ora #$40
+        jsr Random              // the filter cutoff jumps around every frame: the screech wanders between 2 and 4 kHz
+        and #$1f
+        clc
+        adc #$0e
+        sta $d416
+        jsr Random              // voice 1 jitters around 2.3 kHz
+        and #$3f
+        clc
+        adc #$80
         sta $d401
-        jsr Random
-        ora #$60
-        sta $d408
+        lda scream_t            // fade out over the last 15 frames
+        cmp #16
+        bcc !+
+        lda #15
+!:      ora #$40
+        sta $d418
         dec scream_t
         bne st_sr
         jmp ScreamEnd
@@ -482,39 +492,50 @@ amb_fl:     .byte $00, $a7, $00
 amb_fh:     .byte $00, $06, $30
 buzz_fl:    .byte $a7, $b9
 
-// ---- jumpscare scream: as loud as the SID goes. Voice 3 noise (the effect), voice 1 noise and voice 2 a pulse that screeches (random high pitch every frame), all at
+// ---- jumpscare scream: as loud as the SID goes. Imitates the original scream (about 80 % of its energy at 1.6-3.2 kHz, an unsteady cluster of peaks, constant level): noise on voices 2 and 3 plus a jittering sawtooth on voice 1, all through the resonant band-pass filter whose cutoff jumps every frame, at
 // full sustain and nothing routed through the filter; the ambient sounds stay off until ScreamEnd.
 .segment Code3
 SndScream:
         lda #SFX_SCREAM
-        jsr SndStart
+        jsr SndStart            // voice 3: noise
+        lda #$f7                // all three voices through the filter, resonance 15
+        sta $d417
+        lda #$4f                // band-pass, volume 15
+        sta $d418
         lda #0
-        sta $d417               // no filtered voice
-        sta $d40c               // voice 2: pulse, no attack, full sustain
-        sta $d405               // voice 1: noise, no attack, full sustain
+        sta $d415
+        sta $d40c               // voice 2: noise, no attack, full sustain
         sta $d407
+        sta $d405               // voice 1: sawtooth, no attack, full sustain
         sta $d400
+        lda #$24
+        sta $d416
         lda #$f0
         sta $d40d
         sta $d406
-        lda #$40
+        lda #$c0
         sta $d408
+        lda #$98
         sta $d401
-        lda #$40                // voice 2: pulse (the pitch is randomised every frame by SndTick)
+        lda #$80
         sta $d40b
-        lda #$41
-        sta $d40b
-        lda #$80                // voice 1: noise
-        sta $d404
         lda #$81
+        sta $d40b
+        lda #$20
+        sta $d404
+        lda #$21
         sta $d404
         lda #150
         sta scream_t
         rts
 
-ScreamEnd:                      // back to the fan hum (voice 1, filtered) and the ambient voice 2
+ScreamEnd:                      // back to the fan hum (voice 1, low-pass filtered) and the ambient voice 2
         lda #$01
         sta $d417
+        lda #$1f
+        sta $d418
+        lda #$30
+        sta $d416
         lda #0
         sta $d400
         sta $d405
