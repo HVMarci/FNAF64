@@ -14,7 +14,9 @@ movement rules of the original, jumpscares, power outages, and six nights.
 * **jumpscares**: every animatronic flips between its two pictures every 0.1 s for one second while the screen shakes and the scream
   (all three SID voices at full level) plays. Both frames are loaded beforehand: the office stays on screen while the first loads,
   the first is shown (and the scream starts) while the second loads into the office buffer, so nothing loads between the flips and
-  there is no static before the scare. The title screen glitches: Freddy's head shakes sideways (a second copy of the title with the
+  there is no static before the scare. **Foxy** is different: he is a *sprite* (cut out of `foxy/1.png`, 12 x 23 cells) that runs in
+  through the left door over the office in five quick jumps, stands there for a moment and then the picture switches once to `foxy/2.png`;
+  the screen shakes and the scream plays all the time (`src/foxy.asm`, details below). The title screen glitches: Freddy's head shakes sideways (a second copy of the title with the
   head moved one cell sits in the office buffer; the glitch picks the copy per row, so the text stays put) and static bars flash,
 * **Phone Guy**: an automatic call at the start of nights 1–5 – phone ring, subtitles and a synthesised
   mumble instead of speech (`M` mutes it),
@@ -181,13 +183,23 @@ loads and text cards through `mjob` / `mbusy`.
 title → (night 1 only: static → newspaper "HELP WANTED", 5 s or SPACE) → static → night card (office assets load meanwhile) → office ⇄ monitor ⇄ camera switching
    office → power out: doors open (animated) and lights go out while the dark office loads → dissolve → dark office → Freddy in the doorway (music box) → blackout → jumpscare
    (with the monitor up the camera dies into static first)
-   any animatronic → static → jumpscare frame 1 → static → frame 2 → GAME OVER → title
+   Freddy / Bonnie / Chica → jumpscare picture 1 ⇄ 2 (shaking) → static → GAME OVER → title
+   Foxy → his sprite runs in through the left door → picture 2 (shaking) → static → GAME OVER → title
    6 AM → "5 AM" rolls up and the "6" rolls in from below + chime → (newspaper after night 5, ending card after night 6) → title, next night
 ```
 The 12 AM card is on screen while the office bundle is (re)loaded, which also resets the office picture,
 patches and buttons. The power outage keeps the lit office on screen while the dark office loads into the camera buffer; the loader blocks the main loop, so
 the frame tick draws the opening doors (`PwDraw`, saving the main loop's temporaries). Freddy's face then loads into the hidden office buffer.
-All four jumpscares are two hires pictures each (`assets/jumpscare/<who>/1.png`, `2.png`, converted by `gen_jumpscares` in `tools/gen_assets.py`).
+Freddy's, Bonnie's and Chica's jumpscares are two hires pictures each (`assets/jumpscare/<who>/1.png`, `2.png`, converted by `gen_jumpscares` in `tools/gen_assets.py`).
+
+**Foxy's jumpscare** (`src/foxy.asm`) moves a software sprite: the cells where `foxy/1.png` differs from the plain office (`office_normal.png`) are
+his (a cell is either his or the background's; `gen_foxy_sprite` writes them as `foxy_spr.bin`, and asserts that the last slide step reproduces
+`1.png`; `build/gen/prev_foxy.png` shows the steps). When the scare starts, the main loop copies the strip of the office he will run over
+(columns 0-14) from the real office bitmap, so the door, light and buttons stay as they were. Each jump then redraws the cells from his old left edge to
+his new right edge: a cell is his when its colour byte is not `$ff`, else the strip's. The cells are copied straight into the office bitmap while
+the scare shakes it. The code, the sprite and the work area live in the **door patch area** (`$8000-$9fff`), which nothing needs after a death
+until the next night's office bundle reloads it: they come with `2.png` in Foxy's one bundle (`foxy.prg`, `foxy_spr.bin`; the layout check
+knows about this one overlap).
 
 ### Sound
 The tunes are plucked (attack/decay envelope, gate off between notes): a pulse-wave bell for the 6 AM chime and a
@@ -264,7 +276,7 @@ python3 tests/fuzz.py 3 2500          # random input, then checks the office bit
 python3 tools/runtest.py tests/scenarios/scen_ai_bonnie.py    # e.g. Bonnie walking to the door
 ```
 Scenarios that cover the new game: `scen_flow` (title → night card → office → camera), `scen_ai_*`
-(Bonnie, Foxy, Freddy), `scen_scare_bonnie` (jumpscare sequence), `scen_power` (power outage),
+(Bonnie, Foxy, Freddy), `scen_scare_bonnie` (jumpscare sequence), `scen_foxy_slide` (Foxy's run, every other frame), `scen_power` (power outage),
 `scen_win` (6 AM and the next night), `scen_doorway` (hall lights show Bonnie / Chica), `scen_gallery1-3`
 (every camera with different animatronic positions), `scen_night7` / `scen_night7_play` / `scen_unlock7`
 (the custom night: title choice, levels, unlock by beating night 6), `scen_pause` (clock and sound freeze, resume).

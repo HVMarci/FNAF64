@@ -1400,6 +1400,8 @@ PwDraw:
 // ---- jumpscare. Frame 0 loads into the camera buffer while the office stays on screen (a power-out blackout stays black).
 // Then frame 0 is shown (the scream starts) while frame 1 loads into the office buffer; the two pictures then flip every 5 frames
 // (0.1 s) for 10 flips (1 s), all the time shaking, and it cuts to static. Nothing loads between the flips.
+// Foxy is different: his bundle holds 2.png (camera buffer), his sprite and the code that moves it (src/foxy.asm). The office stays up,
+// the sprite runs in through the left door (phases 7-8), then the picture switches once to 2.png (phase 9) and shakes on.
 sm_scare:
         lda #0
         sta sprmode
@@ -1407,9 +1409,13 @@ sm_scare:
         cmp #4
         bne !+
         jmp sx_p4
+!:      cmp #7
+        bcc !+
+        jmp FoxyScare           // Foxy: phases 7-9 are in src/foxy.asm (they come with his bundle)
 !:      cmp #5
-        beq sn_flip
-        cmp #6
+        bne !+
+        jmp sn_flip
+!:      cmp #6
         beq sn_load2
         lda sc_pre
         beq sn_ph0
@@ -1440,7 +1446,13 @@ sn_0b:  inc tcnt
         sta sc_ph
         lda #0
         sta tcnt
-        jmp SndScream           // the first picture appears: scream
+        lda g_who
+        cmp #3
+        bne sn_scr
+        lda #7                  // Foxy: his sprite runs in over the office first (the scream starts with it)
+        sta sc_ph
+        rts
+sn_scr: jmp SndScream           // the first picture appears: scream
 sn_ret: rts
 sn_load2:                       // phase 6: frame 0 is shown (shaking) while frame 1 loads into the office buffer
         lda #0
@@ -2186,7 +2198,7 @@ mw:     lda frame
         sta lastf
         lda mode                // the office buffer holds jumpscare frame 1 / the shifted title: no door, light and button drawing
         cmp #M_SCARE
-        beq mw_scare
+        beq mw_fx
         cmp #M_TITLE
         beq mw_scare
         cmp #M_OVER
@@ -2223,6 +2235,11 @@ mw_scare:
         jsr HudRefresh
         jsr CamCheck
         jmp Main
+mw_fx:  lda sc_ph               // Foxy's sprite is drawn by the main loop
+        cmp #7
+        bcc mw_scare
+        jsr FoxyMain
+        jmp mw_scare
 
 //------------------------------------------------------------------------------
 // Jobs requested by the frame tick (bundle loads and text cards)
@@ -2842,3 +2859,11 @@ rsr_hi:     .fill 22, >(OFF_SCR + (i+3)*40 + 29)
 #if TEST
 .import source "test.asm"
 #endif
+
+//==============================================================================
+// Foxy's jumpscare: its own file (foxy.prg), loaded with his bundle into the door patch area
+//==============================================================================
+.segmentdef Foxy [start=FX_CODE, max=$9fff]
+.file [name="foxy.prg", segments="Foxy"]
+.segment Foxy
+.import source "foxy.asm"

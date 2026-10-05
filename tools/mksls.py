@@ -55,6 +55,16 @@ for i in range(len(CAMS)):
         gid += 1
 for who in range(4):            # frame 0 loads into the camera buffer while the office is still shown; frame 1 into the office buffer
     for f in range(2):          # (the shown frame 0 hides it; reloaded when the next night starts), so the game can then flip between them
+        if who == 3:            # Foxy: his sprite runs in over the office, then 2.png (the camera buffer) shows. The bundle brings the sprite
+            if f == 0:          # data and the code (foxy.prg) into the door patch area, which nothing needs until the next office bundle
+                L.append("<< jumpscare 3 (Foxy: 2.png, his sprite and his code) >>")
+                L.append("DirIndex:\t%02x" % (0x40 + who * 2))
+                L.append("File:\t\"gen/js_3_0.bmp\"\t6000")
+                L.append("File:\t\"gen/js_3_0.scr\"\t4000")
+                L.append("File:\t\"gen/foxy_spr.bin\"\t8d00")
+                L.append("File:\t\"foxy.prg\"")
+                L.append("")
+            continue
         L.append("<< jumpscare %d frame %d%s >>" % (who, f, " (office buffer)" if f else ""))
         L.append("DirIndex:\t%02x" % (0x40 + who * 2 + f))
         L.append("File:\t\"gen/js_%d_%d.bmp\"\t%s" % (who, f, "2000" if f else "6000"))

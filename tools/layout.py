@@ -56,6 +56,7 @@ def collect(sls_name=None):
         if m:
             if "dark" in bundle: continue        # replaces the office picture on purpose
             if "office buffer" in bundle and int(m.group(2), 16) in (0x2000, 0x0400): continue   # jumpscare frame 2 / title head shift: the office buffer, reloaded for the next night
+            if "jumpscare 3" in bundle and 0x8000 <= int(m.group(2), 16) < 0xad00: continue   # Foxy's sprite data: scratch use of the door patch area (reloaded with the office bundle)
             n = os.path.getsize(os.path.join(B, m.group(1)))
             a = int(m.group(2), 16)
             if any(k in bundle for k in TRANSIENT_BUNDLES):

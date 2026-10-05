@@ -41,6 +41,15 @@
 .const BTN_DATA     = PATCHES + 2*SIDE_SZ
 .const BTN_SZ       = 18
 
+// Foxy's jumpscare (src/foxy.asm) lives in the door patch area, which is free from the moment someone dies until the next night's
+// office bundle reloads it. It arrives with Foxy's bundle: the sprite (tools/gen_assets.py gen_foxy_sprite) and the code; the strip
+// of the office he runs over is copied to FX_BG when the scare starts.
+.const FX_BG        = $8000     // office columns 0-14, rows 2-24: per row 120 bitmap bytes (23 rows)
+.const FX_BGS       = $8ac8     // ... then 15 colour bytes per row
+.const FX_SPB       = $8d00     // sprite bitmap: 23 rows x 12 cells x 8 bytes (his cells; the rest is 0)
+.const FX_SPS       = $95a0     // sprite colours: 23 rows x 29 bytes: 3 + 12 + 14, a transparent cell has the colour byte $ff
+.const FX_CODE      = $9a00
+
 // layers (row sources)
 .const LAY_OFFICE   = 0
 .const LAY_CAM      = 1
@@ -292,7 +301,7 @@
 .const DI_OFFICE    = $0e
 .const DI_TITLE     = $0f
 .const DISC_SECS    = 6         // the disclaimer stays up at least this many seconds (BCD, below 10)
-.const DI_JS        = $40
+.const DI_JS        = $40       // + 2 * who (+ 1: the second picture; Foxy has only the first: 2.png, his sprite and his code, see src/foxy.asm)
 .const DI_DARK      = $48
 .const DI_DARKF     = $49
 .const DI_NEWS      = $4a

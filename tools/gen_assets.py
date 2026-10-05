@@ -564,11 +564,77 @@ def gen_jumpscares():
     for who, d in enumerate(("freddy", "bonnie", "chica", "foxy")):
         for f in (1, 2):
             idx = load_indexed(os.path.join(ASSETS, "jumpscare", d, "%d.png" % f))
+            if who == 3:
+                if f == 1:
+                    prev.append(render_hires(*hires_convert(idx)))        # 1.png is cut into the sliding sprite, not shown as a picture
+                else:
+                    prev.append(write_hires("js_3_0", idx))              # 2.png: the picture the slide ends in
+                continue
             prev.append(write_hires("js_%d_%d" % (who, f - 1), idx))
     sheet = Image.new("RGB", (640, 800))
     for i, im in enumerate(prev):
         sheet.paste(im.resize((160, 100)), ((i % 4) * 160, (i // 4) * 100))
     sheet.save(os.path.join(OUT, "prev_jumpscares.png"))
+    gen_foxy_sprite()
+
+
+# Foxy's run into the office (assets/jumpscare/foxy/1.png). The picture is the plain office plus Foxy, so the cells where it differs
+# from office_normal.png are his sprite: 12 cells wide (office columns 3-14) and 23 high (rows 2-24), cell-masked (a cell is either
+# his or the background's). The game slides it in from the left door over the office bitmap in whole cells; the cells he leaves are
+# restored from a copy of the office strip (columns 0-14) taken at run time (src/foxy.asm).
+FX_COL0, FX_COLS, FX_ROW0, FX_ROWS, FX_BGCOLS = 3, 12, 2, 23, 15
+FX_PAD_L, FX_PAD_R = 3, 14          # transparent padding of the sprite's colour rows: the game indexes them with (column - left edge)
+FX_STEPS = (-10, -6, -2, 1, 3)      # left edge (office column) after each step; 3 = his place in 1.png
+FX_TRANSP = 0xff                    # colour byte of a transparent cell
+
+
+def gen_foxy_sprite():
+    fox = load_indexed(os.path.join(ASSETS, "jumpscare", "foxy", "1.png"))
+    off = load_indexed(os.path.join(ASSETS, "office", "office_normal.png"))
+    fb, fs = hires_convert(fox)
+    spb, sps = bytearray(), bytearray()
+    opaque = set()
+    for r in range(FX_ROWS):
+        row = [FX_TRANSP] * FX_PAD_L
+        for j in range(FX_COLS):
+            cx, cy = FX_COL0 + j, FX_ROW0 + r
+            differs = any(fox[cy * 8 + y][cx * 8 + x] != off[cy * 8 + y][cx * 8 + x] for y in range(8) for x in range(8))
+            if differs:
+                assert fs[cy * 40 + cx] != FX_TRANSP, "Foxy cell uses the transparent colour byte"
+                opaque.add((r, j))
+                spb += fb[(cy * 40 + cx) * 8:(cy * 40 + cx) * 8 + 8]
+                row.append(fs[cy * 40 + cx])
+            else:
+                spb += bytes(8)
+                row.append(FX_TRANSP)
+        row += [FX_TRANSP] * FX_PAD_R
+        sps += bytes(row)
+    # nothing of him may lie outside the sprite rectangle (1.png has a few stray pixels on the door buttons: ignored)
+    for cy in range(25):
+        for cx in range(40):
+            if FX_ROW0 <= cy < FX_ROW0 + FX_ROWS and FX_COL0 <= cx < FX_COL0 + FX_COLS: continue
+            assert sum(fox[cy * 8 + y][cx * 8 + x] != off[cy * 8 + y][cx * 8 + x] for y in range(8) for x in range(8)) <= 3, (cx, cy)
+    open(os.path.join(OUT, "foxy_spr.bin"), "wb").write(bytes(spb) + bytes(sps))
+    # preview: the slide, composed the way the game does it (and the last step must be 1.png exactly)
+    ob, os_ = hires_convert(off)
+    sheet = Image.new("RGB", (160 * (len(FX_STEPS) + 1), 100))
+    for n, left in enumerate(FX_STEPS):
+        bmp, scr = bytearray(ob), bytearray(os_)
+        for r in range(FX_ROWS):
+            for x in range(FX_BGCOLS):
+                j = x - left
+                if 0 <= j < FX_COLS and (r, j) in opaque:
+                    cy, cx = FX_ROW0 + r, FX_COL0 + j
+                    d = (cy * 40 + x) * 8
+                    bmp[d:d + 8] = fb[(cy * 40 + cx) * 8:(cy * 40 + cx) * 8 + 8]
+                    scr[cy * 40 + x] = fs[cy * 40 + cx]
+        im = render_hires(bmp, scr)
+        sheet.paste(im.resize((160, 100)), (n * 160, 0))
+        if left == FX_COL0:
+            a, b = render_hires(bmp, scr), render_hires(fb, fs)
+            assert a.crop((24, 16, 120, 200)).tobytes() == b.crop((24, 16, 120, 200)).tobytes(), "last slide step differs from 1.png"
+    sheet.paste(render_hires(fb, fs).resize((160, 100)), (160 * len(FX_STEPS), 0))
+    sheet.save(os.path.join(OUT, "prev_foxy.png"))
 
 
 # ------------------------------------------------------------- phone calls
