@@ -621,6 +621,21 @@ sc_nv3:
         jmp ScreamEnd
 !:      rts
 
+ScreamCut:                      // the jumpscare is over: silence the scream at once (6 ms release on every voice)
+        lda scream_t
+        beq !+
+        lda #0
+        sta scream_t
+        sta sfx_left            // (the hiss sweep stops too)
+        sta $d406
+        sta $d40d
+        sta $d414
+        sta $d404
+        sta $d40b
+        sta $d412
+        jmp ScreamEnd
+!:      rts
+
 ScreamEnd:                      // back to the fan hum (voice 1, low-pass filtered) and the ambient voice 2
         lda #$01
         sta $d417

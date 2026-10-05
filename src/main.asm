@@ -1354,6 +1354,7 @@ sx_p4:  lda #0
         lda tcnt
         cmp #12
         bcc sn_ret
+        jsr ScreamCut           // the scream ends with the animation
         lda #M_OVER
         sta mode
         lda #0
