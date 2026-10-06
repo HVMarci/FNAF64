@@ -565,7 +565,21 @@ ae_knock:
         dec knock
         jmp ae_kit
 ae_kt:  dec knock_tm
-ae_kit: lda ai_pos+2            // Chica in the kitchen: a pot or pan every 0.3-0.8 s, sometimes two in quick succession
+ae_kit: lda mel_id              // Freddy in the kitchen plays his music box (MelTick sets the volume note by note)
+        ldx ai_pos
+        cpx #9
+        bne ae_nobox
+        cmp #0
+        bne ae_chica
+        lda #MEL_KITCHEN
+        jsr MelStart
+        jmp ae_chica
+ae_nobox:
+        cmp #MEL_KITCHEN        // he left: the music stops
+        bne ae_chica
+        jsr MelStop
+ae_chica:
+        lda ai_pos+2            // Chica in the kitchen: a pot or pan every 0.3-0.8 s, sometimes two in quick succession
         cmp #9
         bne ae_end
         lda kitchen_tm
@@ -587,8 +601,6 @@ ae_end: rts
 // (voice 3 is left alone while another effect uses it)
 //------------------------------------------------------------------------------
 KitchenHit:
-        lda mel_id              // voice 2 plays the music box
-        bne kh_ret
         lda sfx_left
         beq kh_go0
         lda kit_ring            // another kitchen hit may be retriggered, any other effect is left alone
@@ -599,6 +611,9 @@ kh_go:  jsr Random
         and #3
         beq !+                  // one in four: lid / pan clatter (noise), the rest: pot clang
         lda #1
+!:      ldy mel_id              // voice 2 plays Freddy's music box: no ring modulator, only the clatter
+        beq !+
+        lda #0
 !:      tax
         jsr MonUp
         bcc kh_q                // office: quiet
@@ -849,6 +864,7 @@ StartScare:                     // A = who: 0 Freddy, 1 Bonnie, 2 Chica, 3 Foxy
         rts
 
 StartPowerOut:
+        jsr MelStop             // (Freddy's music box from the kitchen)
         jsr PhoneStop
         jsr FanOff
         ldx #0                  // tph: 0 the office is shown (static is not needed), 1 the monitor is up
@@ -894,6 +910,7 @@ st_dn:  dex
         jmp SndStart
 
 WinNight:
+        jsr MelStop
         jsr PhoneStop
         lda #0
         sta g_act

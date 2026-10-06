@@ -286,7 +286,14 @@ MelStart:                       // A = MEL_*
 MelTick:
         lda mel_left
         beq mt_next
-        dec mel_left
+        lda mel_q               // a quiet note is released after its first frame: its slow attack only gets a quarter of the way up
+        beq !+
+        lda #0
+        sta mel_q
+        lda mel_wave
+        and #$fe
+        sta $d40b
+!:      dec mel_left
         bne mt_ret
         lda mel_wave            // gate off between notes
         and #$fe
@@ -319,6 +326,21 @@ mt_note:
         sta $d40c
         lda mel_sr-1,x
         sta $d40d
+        cpx #MEL_KITCHEN        // Freddy in the kitchen (volume like Chica's pots): loud on camera 6, quiet in the office and on the other cameras
+        bne mt_gate
+        jsr MonUp
+        bcc mt_quiet
+        lda cam_cur
+        cmp #9
+        beq mt_gate
+mt_quiet:
+        lda #$90                // attack 250 ms, released after 20 ms (MelTick): a soft pluck at under a tenth of the volume
+        sta $d40c
+        lda #$07
+        sta $d40d
+        lda #1
+        sta mel_q
+mt_gate:
         lda mel_wave
         and #$fe
         sta $d40b
@@ -335,19 +357,20 @@ mt_ret: rts
 MelStop:
         lda #0
         sta mel_id
+        sta mel_q
         lda #$fe                // ambient voice is re-initialised on the next tick
         sta amb2_cur
         lda #$10
         sta $d40b
         rts
 
-// per tune: waveform (gate bit set), attack / decay, sustain / release -> plucked bell and music box
-mel_wv:     .byte $41, $11
-mel_ad:     .byte $0a, $07
-mel_sr:     .byte $08, $06
-mel_lo:     .byte <tune_chime, <tune_box
-mel_hi:     .byte >tune_chime, >tune_box
-mel_lp:     .byte 0, 1
+// per tune: waveform (gate bit set), attack / decay, sustain / release -> plucked bell, music box, music box from the kitchen
+mel_wv:     .byte $41, $11, $11
+mel_ad:     .byte $0a, $07, $07
+mel_sr:     .byte $08, $06, $06
+mel_lo:     .byte <tune_chime, <tune_box, <tune_box
+mel_hi:     .byte >tune_chime, >tune_box, >tune_box
+mel_lp:     .byte 0, 1, 1
 // note frequencies (PAL): SID value = Hz * 2^24 / 985248
 .function sidhz(hz) { .return round(hz * 16777216 / 985248) }
 .const N_E5  = sidhz(659.26)

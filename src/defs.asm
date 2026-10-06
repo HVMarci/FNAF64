@@ -200,6 +200,7 @@
 .const SFX_CLANGQ   = 17
 .const MEL_CHIME    = 1
 .const MEL_BOX      = 2
+.const MEL_KITCHEN  = 3        // Freddy in the kitchen: the music box, loud on camera 6, quiet everywhere else
 .label zwin          = $69   // main temp: 0 door cells / 1 window cells
 .label wdrawn       = $6a   // 2 bytes: window variant drawn
 .label bdrawn       = $68   // door / light buttons drawn lit in the office picture (bit 0 L door, 1 L light, 2 R door, 3 R light)
@@ -272,6 +273,7 @@
 .label mel_id       = gv+87
 .label mel_loop     = gv+88
 .label mel_wave     = gv+89
+.label mel_q        = gv+98     // 1: the note just started is a quiet one (released after its first frame)
 .label g_gt         = gv+90     // 8 bytes of temporaries for the game tick
 .label fan_tm       = gv+100
 .label fan_i        = gv+101
