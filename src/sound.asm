@@ -21,6 +21,9 @@
 .label lau_w      = sndvars+23  // frames of silence left before that syllable
 .label lau_f      = sndvars+24  // the laugh's starting pitch (hi byte), a little different every time
 .label fan_off    = sndvars+16  // 1: the fan hum (voice 1) is silenced (after the power ran out)
+.label sfx_id     = sndvars+25  // the effect voice 3 plays now (the phone's mumble counts as SFX_STATIC)
+.label sm_t       = sndvars+26  // Freddy's smile on the poster: frames left (src/smile.asm)
+.label f_prev     = sndvars+27  // F was down in the previous frame
 
 SndInit:
         ldx #24
@@ -30,6 +33,7 @@ SndInit:
         bpl !-
         sta lau_i
         sta fan_off
+        sta sm_t
         lda #$00
         sta $d415
         lda #$30                // low cutoff for the fan rumble
@@ -80,6 +84,7 @@ FanOn:                          // back to the hum (new night, title screen)
 // A = effect id
 //------------------------------------------------------------------------------
 SndStart:
+        sta sfx_id
         ldx lau_i               // any effect on voice 3 ends a laugh
         beq !+
         ldx #$ff                // (voice 2 goes back to the ambient sound)
@@ -256,6 +261,7 @@ SndBlip:
         sta $d414
         lda #3
         sta sfx_left
+        sta sfx_id
         lda #$20
         sta $d412
         lda #$21
@@ -532,6 +538,9 @@ sfx_tab:
         .byte $81, $00, $35, 5
         .word $3000, $0000
         .byte $15, $00, $48, 14
+        // 18 honk (the poster's nose): a raspy 31 % pulse, 715 Hz sagging to 625 Hz in 0.24 s, then 0.2 s release
+        .word $2f8f, $ff80
+        .byte $41, $20, $d6, 12
 
 .segment Code3
 

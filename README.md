@@ -21,6 +21,10 @@ movement rules of the original, jumpscares, power outages, and six nights.
 * **Phone Guy**: an automatic call at the start of nights 1–5 – phone ring, subtitles and a synthesised
   mumble instead of speech (`M` mutes it),
 * SID sound effects, background hum, Freddy's music box and the 6 AM chime,
+* **Freddy's nose**: `F` in the office honks the poster's nose (a raspy party-horn honk modelled on the original's
+  `PartyFavorraspyPart_AC01__3.wav`: a 31 % pulse sagging from 715 to 625 Hz, its width wobbling at 12.5 Hz for the rasp) and Freddy
+  smiles while it sounds (`src/smile.asm`: four hires cells of the office picture, from `assets/office/freddy_smile.png`, swapped in and
+  back; another effect on voice 3 or leaving the office / monitor modes ends the smile at once),
 * a **disclaimer screen** at boot (fan project, not connected to the original game, rights belong to Scott Cawthon; warns about flashing lights and jumpscares). It sits in bank 3 (`$c000` / `$e000`, free until `InitNoise` builds the noise screens there) and stays up while the title and the office assets load, for at least 6 s (timed with the CIA1 TOD clock; test builds skip the wait and the fades). It fades in when it appears and out at the end; the display is then off while the noise is built, so the title's first visible frame is already glitching and noisy,
 * a title screen (from `assets/lobby.png`) with night selection, and the **newspaper** (`assets/newspaper.png`) before the first night as in the original (it fades in and out through the grey ramp, SPACE skips it). The night card ("12:00 AM"), the 5 AM / 6 AM cards and the disclaimer fade as well (`src/newsfade.asm`: the hires pictures fade through their colour cells; the code lives in its own segment Code5 at `$c840`, Foxy's run steps start at `$cb00`),
 * **night 7, the 20/20/20/20 custom night** (unlocked by beating night 6) and a **pause** key (`P`),
@@ -53,6 +57,7 @@ Autostart takes a few seconds; the title screen appears once the first files are
 | `A` / `L` | toggle left / right **door** |
 | `S` / `K` | hold left / right **light** (only one at a time) |
 | `M` | mute the phone call |
+| `F` | honk Freddy's nose on the poster (office): he smiles while it honks |
 | `P` | pause / resume (office and monitor only): clock, animatronics, phone and sound stop, the border turns red |
 | `←`, `1`–`9`, `0` | camera (monitor up), as numbered on the camera map: `←` show stage (the original post names used in this README: 1A), `1` dining area (1B), `2` pirate cove (1C), `3`/`4` west hall / its corner (2A/2B), `5` supply closet (3), `6`/`7` east hall / its corner (4A/4B), `8` backstage (5), `9` kitchen (6, audio only), `0` restrooms (7) |
 | `CRSR →` / `SHIFT+CRSR` | next / previous camera |
@@ -225,7 +230,7 @@ no warp) and `tools/wavstat.py out.wav` prints level and pitch per second, which
 SID voice 1: fan rumble through the low-pass filter. Voice 2: 100 Hz light buzz / camera hiss, and the
 melody player (6 AM chime, Freddy's music box). Voice 3: one-shot effects – door servo + thump, monitor
 whoosh, camera blip, static bursts, footsteps, Freddy's laugh, the doorway sting, the scream, power-down,
-pots and pans, groan, Foxy's knocks.
+pots and pans, groan, Foxy's knocks, the poster's honk.
 
 ### Memory map
 `tools/memmap.py` prints the real map of the last build (every region, the free gaps, the headroom of each code
@@ -291,7 +296,7 @@ Scenarios that cover the new game: `scen_flow` (title → night card → office 
 (Bonnie, Foxy, Freddy), `scen_scare_bonnie` (jumpscare sequence), `scen_foxy_slide` (Foxy's run, every other frame), `scen_foxy_run` (Foxy's run animation on camera 2A), `scen_power` (power outage),
 `scen_win` (6 AM and the next night), `scen_doorway` (hall lights show Bonnie / Chica), `scen_gallery1-3`
 (every camera with different animatronic positions), `scen_night7` / `scen_night7_play` / `scen_unlock7`
-(the custom night: title choice, levels, unlock by beating night 6), `scen_pause` (clock and sound freeze, resume).
+(the custom night: title choice, levels, unlock by beating night 6), `scen_pause` (clock and sound freeze, resume), `scen_smile` (F: the poster's smile comes and goes with the honk).
 `tests/check_save.sh` (part of the suite) is the save test: beat night 1 on a fresh disk, check that the save record is on
 the `.d64`, boot the *same* disk again (`NOBUILD=1` makes `runtest.py` reuse the last test disk) and check the title offers
 night 2. Test builds normally unlock every night; `DEFINES = ["SAVETEST"]` turns that off so the disk decides.

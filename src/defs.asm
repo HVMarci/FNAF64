@@ -198,6 +198,7 @@
 .const SFX_CLANG    = 15        // kitchen: pot ding (loud), then the quiet versions of both sounds
 .const SFX_CLATTERQ = 16
 .const SFX_CLANGQ   = 17
+.const SFX_HONK     = 18        // the poster's nose (F in the office): a raspy party-horn honk
 .const MEL_CHIME    = 1
 .const MEL_BOX      = 2
 .const MEL_KITCHEN  = 3        // Freddy in the kitchen: the music box, loud on camera 6, quiet everywhere else

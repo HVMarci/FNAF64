@@ -373,6 +373,7 @@ IrqTick:
         jsr StateMachine
         jsr GameTick
         jsr PhoneTick
+        jsr SmileTick
 it_paused:
         jsr SubOverlay
         jsr BuildTables
@@ -2898,6 +2899,7 @@ rsr_lo:     .fill 22, <(OFF_SCR + (i+3)*40 + 29)
 rsr_hi:     .fill 22, >(OFF_SCR + (i+3)*40 + 29)
 
 .import source "pause.asm"
+.import source "smile.asm"
 .segment Code1                  // (Code3 has no room for the test harness any more)
 .import source "foxyrun.asm"
 .segment Code3

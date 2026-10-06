@@ -513,6 +513,27 @@ def gen_lamp(normal):
     open(os.path.join(OUT, "lamp.bin"), "wb").write(bytes(out))
 
 
+# Freddy's smile on the poster (F in the office): the cells where freddy_smile.png differs from the office
+SMILE_COLS, SMILE_ROWS = (15, 16), (8, 9)
+
+
+def gen_smile(normal):
+    """smile.bin: the smiling cells, then the office's own (bitmap row 8, bitmap row 9, the 4 colour bytes; 36 bytes each)."""
+    nidx = load_indexed(os.path.join(ASSETS, "office", "office_normal.png"))
+    sidx = load_indexed(os.path.join(ASSETS, "office", "freddy_smile.png"))
+    for y in range(200):
+        for x in range(320):
+            if nidx[y][x] != sidx[y][x]:
+                assert x // 8 in SMILE_COLS and y // 8 in SMILE_ROWS, ("freddy_smile.png differs outside the poster cells", x, y)
+    out = bytearray()
+    for bmp, scr in (hires_convert(sidx), normal):
+        for r in SMILE_ROWS:
+            out += bmp[(r * 40 + SMILE_COLS[0]) * 8:(r * 40 + SMILE_COLS[1] + 1) * 8]
+        out += bytes(scr[r * 40 + c] for r in SMILE_ROWS for c in SMILE_COLS)
+    assert len(out) == 72
+    open(os.path.join(OUT, "smile.bin"), "wb").write(bytes(out))
+
+
 # ------------------------------------------------------------------- fan
 # The desk fan is redrawn every few frames: dithered blade wedges (3 blades, 4 steps of 30 degrees)
 # sweep across the dark part of the grille. Only cells inside the circle change (5 row segments).
@@ -845,6 +866,7 @@ if __name__ == "__main__":
     gen_disclaimer()
     normal = gen_office()
     gen_lamp(normal)
+    gen_smile(normal)
     gen_fan(normal)
     gen_sprites()
     files = gen_cams()
